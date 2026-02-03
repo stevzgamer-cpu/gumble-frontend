@@ -1,43 +1,95 @@
+/* LUXURY THEME - DARK & GOLD */
 body {
-  background-color: #0d0d0d; /* Deep Black */
-  color: #d4af37; /* Gold Text */
+  background-color: #050505;
+  color: #e0e0e0;
   font-family: 'Montserrat', sans-serif;
   margin: 0;
+  overflow: hidden;
 }
+
+/* 1. LOGIN SCREEN */
+.login-screen {
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: radial-gradient(circle at center, #1a1a1a 0%, #000000 100%);
+}
+
+.login-box {
+  background: #111;
+  padding: 40px;
+  border: 1px solid #333;
+  border-radius: 10px;
+  width: 350px;
+  text-align: center;
+  box-shadow: 0 0 30px rgba(212, 175, 55, 0.1);
+}
+
+.brand-title { font-size: 3rem; margin-bottom: 30px; letter-spacing: 5px; }
+.gold { color: #d4af37; text-shadow: 0 0 10px #d4af37; }
+.green { color: #27ae60; }
+
+input {
+  width: 100%;
+  padding: 15px;
+  margin-bottom: 15px;
+  background: #222;
+  border: 1px solid #444;
+  color: white;
+  border-radius: 5px;
+  box-sizing: border-box; /* Fixes padding issue */
+  font-size: 16px;
+}
+
+input:focus { outline: 1px solid #d4af37; }
 
 .luxury-btn {
-  background: linear-gradient(45deg, #d4af37, #f2c94c);
+  background: linear-gradient(135deg, #d4af37, #aa8c2c);
   border: none;
-  padding: 10px 20px;
+  padding: 15px;
   color: #000;
-  font-weight: bold;
+  font-weight: 900;
+  letter-spacing: 1px;
   cursor: pointer;
   border-radius: 5px;
-  text-transform: uppercase;
+  transition: transform 0.2s;
+}
+.luxury-btn:hover { transform: scale(1.02); box-shadow: 0 0 15px #d4af37; }
+.full-width { width: 100%; }
+
+.switch-mode { color: #888; cursor: pointer; font-size: 0.9rem; margin-top: 15px; }
+.switch-mode:hover { color: #d4af37; text-decoration: underline; }
+
+.google-btn {
+  background: white; color: #333; border: none; padding: 10px; width: 100%;
+  margin-top: 10px; border-radius: 5px; font-weight: bold; cursor: pointer;
 }
 
+/* 2. POKER TABLE */
 .poker-table {
-  background: radial-gradient(circle, #0e4d26 0%, #031f0d 100%);
-  border: 10px solid #5c4033; /* Wood trim */
-  border-radius: 150px;
+  background: #0e3618; /* Classic Felt Green */
+  border: 15px solid #3e2723;
+  border-radius: 200px;
   width: 80%;
   height: 60vh;
-  margin: 50px auto;
+  margin: 40px auto;
   position: relative;
-  box-shadow: 0 0 50px rgba(0,0,0,0.8);
+  box-shadow: inset 0 0 100px rgba(0,0,0,0.8);
 }
 
 .card {
-  width: 60px;
-  height: 90px;
-  background: white;
-  border-radius: 5px;
-  display: inline-block;
-  margin: 5px;
-  color: black;
-  font-weight: bold;
-  font-size: 20px;
-  text-align: center;
-  line-height: 90px;
+  width: 50px; height: 75px; background: white; border-radius: 4px;
+  display: inline-flex; justify-content: center; align-items: center;
+  color: black; font-weight: bold; font-size: 1.2rem; margin: 2px;
+  box-shadow: 2px 2px 5px rgba(0,0,0,0.5);
 }
-.card.hidden { background:  #b22222; color: transparent; border: 2px solid white; }
+.card.back { background: repeating-linear-gradient(45deg, #b71c1c, #b71c1c 10px, #c62828 10px, #c62828 20px); color: transparent; border: 2px solid white; }
+
+.player-seat { position: absolute; text-align: center; width: 100px; }
+.player-seat.me { bottom: -50px; left: 50%; transform: translateX(-50%); }
+
+.avatar-circle {
+  width: 50px; height: 50px; background: #333; border: 2px solid #d4af37;
+  border-radius: 50%; margin: 0 auto; line-height: 50px; font-weight: bold;
+}

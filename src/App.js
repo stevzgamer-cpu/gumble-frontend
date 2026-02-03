@@ -4,10 +4,19 @@ import './App.css';
 
 const socket = io("https://gumble-backend.onrender.com");
 
+// --- 🛠️ THE FIX IS HERE: FORCE UPPERCASE SUITS ---
 const getCardSrc = (code) => {
+    // If the code is missing or hidden, show the red back
     if (!code || code === 'XX') return "https://www.deckofcardsapi.com/static/img/back.png";
-    let rank = code[0] === 'T' ? '0' : code[0]; 
-    return `https://www.deckofcardsapi.com/static/img/${rank}${code[1]}.png`;
+    
+    // 1. Convert 'T' (Ten) to '0' because the API uses 0 for 10
+    let rank = code[0] === 'T' ? '0' : code[0];
+    
+    // 2. FORCE UPPERCASE SUIT (Fixes the invisible card bug)
+    // The backend sends 'h', but the API needs 'H'
+    let suit = code[1].toUpperCase(); 
+    
+    return `https://www.deckofcardsapi.com/static/img/${rank}${suit}.png`;
 };
 
 function App() {
@@ -15,9 +24,10 @@ function App() {
   const [gameState, setGameState] = useState(null);
   const [buyIn, setBuyIn] = useState(100);
   const [raiseAmount, setRaiseAmount] = useState(20);
-  const [walletAmount, setWalletAmount] = useState(0); // For deposit/withdraw
+  const [walletAmount, setWalletAmount] = useState(0); 
   const [isRegistering, setIsRegistering] = useState(false);
 
+  // AUTH HANDLER
   const handleAuth = async (e) => {
     e.preventDefault();
     const endpoint = isRegistering ? 'register' : 'login';
@@ -29,9 +39,10 @@ function App() {
         const data = await res.json();
         if (res.ok) setUser(data);
         else alert(data.error);
-    } catch(err) { alert("Server Offline"); }
+    } catch(err) { alert("Server Offline. Check Backend Logs."); }
   };
 
+  // WALLET HANDLER
   const handleWallet = async (type) => {
       const res = await fetch(`https://gumble-backend.onrender.com/api/wallet`, {
           method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -50,6 +61,7 @@ function App() {
   const joinGame = () => socket.emit('joinGame', { userId: user._id, buyIn });
   const leaveGame = () => { socket.emit('leaveGame'); setGameState(null); };
 
+  // --- 1. LOGIN SCREEN ---
   if (!user) return (
       <div className="login-screen">
           <div className="login-box">
@@ -66,13 +78,13 @@ function App() {
       </div>
   );
 
+  // --- 2. LOBBY SCREEN ---
   if (!gameState || !gameState.players.find(p => p.name === user.username)) return (
       <div className="lobby-screen">
           <div className="lobby-box">
               <h1>Welcome, {user.username}</h1>
               <div className="balance-display">Wallet: ${user.balance}</div>
               
-              {/* WALLET SECTION */}
               <div className="wallet-box">
                   <input type="number" placeholder="Amount" value={walletAmount} onChange={e=>setWalletAmount(e.target.value)} className="lux-input small" />
                   <div className="btn-row">
@@ -93,6 +105,7 @@ function App() {
       </div>
   );
 
+  // --- 3. GAME TABLE ---
   const mySeat = gameState.players.find(p => p.name === user.username);
   const isMyTurn = gameState.players[gameState.turnIndex]?.id === socket.id;
 
@@ -105,11 +118,14 @@ function App() {
         <div className="poker-table">
             <div className="table-center">
                 <div className="pot-pill">POT: ${gameState.pot}</div>
+                
+                {/* COMMUNITY CARDS (THE FLOP) */}
                 <div className="community-cards">
                     {gameState.communityCards.map((c, i) => (
                         <img key={i} src={getCardSrc(c)} className="real-card" alt={c} />
                     ))}
                 </div>
+                
                 {gameState.phase === 'showdown' && <div className="winner-msg">SHOWDOWN!</div>}
             </div>
 
@@ -118,38 +134,4 @@ function App() {
                 const isTurn = gameState.players[gameState.turnIndex]?.id === p.id;
                 return (
                     <div key={i} className={`seat seat-${i} ${isTurn ? 'active-turn' : ''}`}>
-                         {isTurn && <div className="timer-bar" style={{width: `${(gameState.timer/30)*100}%`}}></div>}
-                         <div className="avatar">{p.name[0]}</div>
-                         <div className="p-info">
-                             <div className="p-name">{p.name} {i === gameState.dealerIndex && "👑"}</div>
-                             <div className="p-bal">${p.balance}</div>
-                         </div>
-                         <div className="hand">
-                             {p.hand.map((c, j) => (
-                                 <img key={j} src={getCardSrc(!isMe && gameState.phase !== 'showdown' ? 'XX' : c)} 
-                                      className="real-card small" alt="card" />
-                             ))}
-                         </div>
-                         {p.currentBet > 0 && <div className="bet-bubble">${p.currentBet}</div>}
-                    </div>
-                );
-            })}
-        </div>
-
-        <div className={`controls-dock ${!isMyTurn ? 'disabled' : ''}`}>
-            <div className="slider-box">
-                <input type="range" min={gameState.highestBet} max={mySeat.balance} 
-                       value={raiseAmount} onChange={(e)=>setRaiseAmount(Number(e.target.value))} />
-                <span>Bet: ${raiseAmount}</span>
-            </div>
-            <div className="action-btns">
-                <button className="act-btn fold" onClick={()=>socket.emit('action', {type:'fold'})}>FOLD</button>
-                <button className="act-btn check" onClick={()=>socket.emit('action', {type:'call'})}>CALL / CHECK</button>
-                <button className="act-btn raise" onClick={()=>socket.emit('action', {type:'raise', amount: raiseAmount})}>RAISE</button>
-            </div>
-        </div>
-    </div>
-  );
-}
-
-export default App;
+                         {isTurn && <div className="timer-bar" style={{width

@@ -131,3 +131,14 @@ function App() {
                 const isTurn = gameState.players[gameState.turnIndex]?.id === p.id;
                 
                 // SIMPLIFIED STYLE SYNTAX TO PREVENT ERROR
+                const timerWidth = (gameState.timer / 30) * 100 + '%';
+
+                return (
+                    <div key={i} className={`seat seat-${i} ${isTurn ? 'active-turn' : ''}`}>
+                         {isTurn && <div className="timer-bar" style={{ width: timerWidth }}></div>}
+                         <div className="avatar">{p.name[0]}</div>
+                         <div className="p-info">
+                             <div className="p-name">{p.name} {i === gameState.dealerIndex && "👑"}</div>
+                             <div className="p-bal">${p.balance}</div>
+                         </div>
+                         <div className="hand">

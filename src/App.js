@@ -49,7 +49,6 @@ function App() {
   useEffect(() => {
     socket.on('gameState', (data) => {
         setGameState(data);
-        // Default raise to min raise (highest bet + 20)
         if(data) setRaiseAmount(data.highestBet + 20);
     });
     return () => socket.off('gameState');
@@ -58,8 +57,6 @@ function App() {
   const joinGame = () => socket.emit('joinGame', { userId: user._id, buyIn });
   const leaveGame = () => { socket.emit('leaveGame'); setGameState(null); };
 
-  // --- SCREENS ---
-  
   // 1. LOGIN
   if (!user) return (
       <div className="login-screen">
@@ -102,7 +99,7 @@ function App() {
       </div>
   );
 
-  // 3. TABLE VARIABLES (Calculated SAFELY outside HTML)
+  // 3. TABLE VARIABLES
   const isMyTurn = gameState.players[gameState.turnIndex]?.id === socket.id;
   const currentBet = myPlayer.currentBet || 0;
   const toCall = gameState.highestBet - currentBet;
@@ -115,7 +112,6 @@ function App() {
         </div>
 
         <div className="poker-table">
-            {/* CENTER INFO */}
             <div className="table-center">
                 <div className="pot-pill">POT: ${gameState.pot}</div>
                 <div className="community-cards">
@@ -123,19 +119,20 @@ function App() {
                         <img key={i} src={getCardSrc(c)} className="real-card" alt="card" />
                     ))}
                 </div>
-                {gameState.phase === 'showdown' && <div className="winner-msg">SHOWDOWN!</div>}
+                {gameState.phase === 'showdown' && (
+                    <div className="winner-msg">
+                        WINNER: {gameState.winners.join(", ")}
+                    </div>
+                )}
             </div>
 
-            {/* SEATS LOOP */}
             {gameState.players.map((p, i) => {
-                // Determine Seat Index
                 const isMe = p.name === user.username;
                 let isTurn = false;
                 if (gameState.players[gameState.turnIndex] && gameState.players[gameState.turnIndex].id === p.id) {
                     isTurn = true;
                 }
 
-                // Timer Math
                 let timerStyle = { width: "0%" };
                 if (isTurn) {
                     let percent = (gameState.timer / 30) * 100;
@@ -145,13 +142,11 @@ function App() {
                 return (
                     <div key={i} className={`seat seat-${i} ${isTurn ? 'active-turn' : ''} ${p.folded ? 'folded' : ''}`}>
                          {isTurn && <div className="timer-bar" style={timerStyle}></div>}
-                         
                          <div className="avatar">{p.name[0]}</div>
                          <div className="p-info">
                              <div className="p-name">{p.name} {i === gameState.dealerIndex && "👑"}</div>
                              <div className="p-bal">${p.balance}</div>
                          </div>
-                         
                          <div className="hand">
                              {p.hand.map((c, j) => (
                                  <img key={j} src={getCardSrc((isMe || gameState.phase === 'showdown') ? c : 'XX')} 
@@ -164,7 +159,6 @@ function App() {
             })}
         </div>
 
-        {/* CONTROLS (Only visible if my turn) */}
         <div className={`controls-dock ${!isMyTurn ? 'disabled' : ''}`}>
             <div className="slider-box">
                 <input type="range" min={gameState.highestBet + 10} max={myPlayer.balance + currentBet} 
@@ -173,13 +167,11 @@ function App() {
             </div>
             <div className="action-btns">
                 <button className="act-btn fold" onClick={()=>socket.emit('action', {type:'fold'})}>FOLD</button>
-                
                 {canCheck ? (
                     <button className="act-btn check" onClick={()=>socket.emit('action', {type:'call'})}>CHECK</button>
                 ) : (
                     <button className="act-btn check" onClick={()=>socket.emit('action', {type:'call'})}>CALL ${toCall}</button>
                 )}
-
                 <button className="act-btn raise" onClick={()=>socket.emit('action', {type:'raise', amount: raiseAmount})}>RAISE</button>
             </div>
         </div>

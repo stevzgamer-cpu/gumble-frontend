@@ -19,6 +19,7 @@ function App() {
   const [walletAmount, setWalletAmount] = useState(0); 
   const [isRegistering, setIsRegistering] = useState(false);
 
+  // --- AUTH ---
   const handleAuth = async (e) => {
     e.preventDefault();
     const endpoint = isRegistering ? 'register' : 'login';
@@ -33,9 +34,7 @@ function App() {
     } catch(err) { alert("Server Offline"); }
   };
 
-  const handleDeposit = () => handleWallet('deposit');
-  const handleWithdraw = () => handleWallet('withdraw');
-
+  // --- WALLET ---
   const handleWallet = async (type) => {
       if (!walletAmount) return;
       const res = await fetch(`https://gumble-backend.onrender.com/api/wallet`, {
@@ -81,12 +80,11 @@ function App() {
               <div className="wallet-box">
                   <input type="number" placeholder="Amount" value={walletAmount} onChange={e=>setWalletAmount(e.target.value)} className="lux-input small" />
                   <div className="btn-row">
-                      <button onClick={handleDeposit} className="green-btn">DEPOSIT</button>
-                      <button onClick={handleWithdraw} className="red-btn">WITHDRAW</button>
+                      <button onClick={()=>handleWallet('deposit')} className="green-btn">DEPOSIT</button>
+                      <button onClick={()=>handleWallet('withdraw')} className="red-btn">WITHDRAW</button>
                   </div>
               </div>
               <div className="stakes-box">
-                  <p>Select Buy-in:</p>
                   <div className="btn-row">
                       <button onClick={()=>setBuyIn(50)} className={buyIn===50?"active":""}>$50</button>
                       <button onClick={()=>setBuyIn(100)} className={buyIn===100?"active":""}>$100</button>
@@ -97,4 +95,52 @@ function App() {
       </div>
   );
 
-  // 3
+  // 3. TABLE
+  const mySeat = gameState.players.find(p => p.name === user.username);
+  
+  // Safe Turn Check
+  let isMyTurn = false;
+  if (gameState.players[gameState.turnIndex] && gameState.players[gameState.turnIndex].id === socket.id) {
+      isMyTurn = true;
+  }
+
+  return (
+    <div className="game-screen">
+        <div className="header-bar">
+            <button className="leave-btn" onClick={leaveGame}>LEAVE TABLE</button>
+        </div>
+
+        <div className="poker-table">
+            <div className="table-center">
+                <div className="pot-pill">POT: ${gameState.pot}</div>
+                <div className="community-cards">
+                    {gameState.communityCards.map((c, i) => (
+                        <img key={i} src={getCardSrc(c)} className="real-card" alt="card" />
+                    ))}
+                </div>
+                {gameState.phase === 'showdown' && <div className="winner-msg">SHOWDOWN!</div>}
+            </div>
+
+            {gameState.players.map((p, i) => {
+                // --- SAFE MODE LOGIC BLOCK ---
+                // We define variables HERE instead of inside the HTML
+                let isTurn = false;
+                if (gameState.players[gameState.turnIndex] && gameState.players[gameState.turnIndex].id === p.id) {
+                    isTurn = true;
+                }
+                
+                let timerStyle = { width: "0%" };
+                if (isTurn) {
+                    let percent = (gameState.timer / 30) * 100;
+                    timerStyle = { width: percent + "%" };
+                }
+                
+                let isMe = p.name === user.username;
+                let showCards = isMe || gameState.phase === 'showdown';
+
+                return (
+                    <div key={i} className={`seat seat-${i} ${isTurn ? 'active-turn' : ''}`}>
+                         {isTurn && <div className="timer-bar" style={timerStyle}></div>}
+                         
+                         <div className="avatar">{p.name[0]}</div>
+                         <div className="p-info">

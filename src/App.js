@@ -15,11 +15,11 @@ function App() {
   const [user, setUser] = useState(null);
   const [gameState, setGameState] = useState(null);
   const [buyIn, setBuyIn] = useState(100);
-  const [raiseAmount, setRaiseAmount] = useState(20);
+  const [raiseAmount, setRaiseAmount] = useState(0);
   const [walletAmount, setWalletAmount] = useState(0); 
   const [isRegistering, setIsRegistering] = useState(false);
 
-  // --- AUTH ---
+  // AUTH
   const handleAuth = async (e) => {
     e.preventDefault();
     const endpoint = isRegistering ? 'register' : 'login';
@@ -34,7 +34,7 @@ function App() {
     } catch(err) { alert("Server Offline"); }
   };
 
-  // --- WALLET ---
+  // WALLET
   const handleWallet = async (type) => {
       if (!walletAmount) return;
       const res = await fetch(`https://gumble-backend.onrender.com/api/wallet`, {
@@ -47,13 +47,19 @@ function App() {
   };
 
   useEffect(() => {
-    socket.on('gameState', setGameState);
+    socket.on('gameState', (data) => {
+        setGameState(data);
+        // Default raise to min raise (highest bet + 20)
+        if(data) setRaiseAmount(data.highestBet + 20);
+    });
     return () => socket.off('gameState');
   }, []);
 
   const joinGame = () => socket.emit('joinGame', { userId: user._id, buyIn });
   const leaveGame = () => { socket.emit('leaveGame'); setGameState(null); };
 
+  // --- SCREENS ---
+  
   // 1. LOGIN
   if (!user) return (
       <div className="login-screen">
@@ -72,7 +78,8 @@ function App() {
   );
 
   // 2. LOBBY
-  if (!gameState || !gameState.players.find(p => p.name === user.username)) return (
+  const myPlayer = gameState?.players.find(p => p.name === user.username);
+  if (!gameState || !myPlayer) return (
       <div className="lobby-screen">
           <div className="lobby-box">
               <h1>Welcome, {user.username}</h1>
@@ -95,14 +102,11 @@ function App() {
       </div>
   );
 
-  // 3. TABLE
-  const mySeat = gameState.players.find(p => p.name === user.username);
-  
-  // Safe Turn Check
-  let isMyTurn = false;
-  if (gameState.players[gameState.turnIndex] && gameState.players[gameState.turnIndex].id === socket.id) {
-      isMyTurn = true;
-  }
+  // 3. TABLE VARIABLES (Calculated SAFELY outside HTML)
+  const isMyTurn = gameState.players[gameState.turnIndex]?.id === socket.id;
+  const currentBet = myPlayer.currentBet || 0;
+  const toCall = gameState.highestBet - currentBet;
+  const canCheck = toCall === 0;
 
   return (
     <div className="game-screen">
@@ -111,6 +115,7 @@ function App() {
         </div>
 
         <div className="poker-table">
+            {/* CENTER INFO */}
             <div className="table-center">
                 <div className="pot-pill">POT: ${gameState.pot}</div>
                 <div className="community-cards">
@@ -121,27 +126,24 @@ function App() {
                 {gameState.phase === 'showdown' && <div className="winner-msg">SHOWDOWN!</div>}
             </div>
 
+            {/* SEATS LOOP */}
             {gameState.players.map((p, i) => {
-                // --- SAFE MODE LOGIC BLOCK ---
-                // We define variables HERE instead of inside the HTML
+                // Determine Seat Index
+                const isMe = p.name === user.username;
                 let isTurn = false;
                 if (gameState.players[gameState.turnIndex] && gameState.players[gameState.turnIndex].id === p.id) {
                     isTurn = true;
                 }
-                
-                // Calculate style safely
+
+                // Timer Math
                 let timerStyle = { width: "0%" };
                 if (isTurn) {
                     let percent = (gameState.timer / 30) * 100;
                     timerStyle = { width: percent + "%" };
                 }
-                
-                let isMe = p.name === user.username;
-                let showCards = isMe || gameState.phase === 'showdown';
 
-                // Explicit Return
                 return (
-                    <div key={i} className={`seat seat-${i} ${isTurn ? 'active-turn' : ''}`}>
+                    <div key={i} className={`seat seat-${i} ${isTurn ? 'active-turn' : ''} ${p.folded ? 'folded' : ''}`}>
                          {isTurn && <div className="timer-bar" style={timerStyle}></div>}
                          
                          <div className="avatar">{p.name[0]}</div>
@@ -152,7 +154,7 @@ function App() {
                          
                          <div className="hand">
                              {p.hand.map((c, j) => (
-                                 <img key={j} src={getCardSrc(showCards ? c : 'XX')} 
+                                 <img key={j} src={getCardSrc((isMe || gameState.phase === 'showdown') ? c : 'XX')} 
                                       className="real-card small" alt="card" />
                              ))}
                          </div>
@@ -162,15 +164,22 @@ function App() {
             })}
         </div>
 
+        {/* CONTROLS (Only visible if my turn) */}
         <div className={`controls-dock ${!isMyTurn ? 'disabled' : ''}`}>
             <div className="slider-box">
-                <input type="range" min={gameState.highestBet} max={mySeat.balance} 
+                <input type="range" min={gameState.highestBet + 10} max={myPlayer.balance + currentBet} 
                        value={raiseAmount} onChange={(e)=>setRaiseAmount(Number(e.target.value))} />
-                <span>Bet: ${raiseAmount}</span>
+                <span>Raise To: ${raiseAmount}</span>
             </div>
             <div className="action-btns">
                 <button className="act-btn fold" onClick={()=>socket.emit('action', {type:'fold'})}>FOLD</button>
-                <button className="act-btn check" onClick={()=>socket.emit('action', {type:'call'})}>CALL / CHECK</button>
+                
+                {canCheck ? (
+                    <button className="act-btn check" onClick={()=>socket.emit('action', {type:'call'})}>CHECK</button>
+                ) : (
+                    <button className="act-btn check" onClick={()=>socket.emit('action', {type:'call'})}>CALL ${toCall}</button>
+                )}
+
                 <button className="act-btn raise" onClick={()=>socket.emit('action', {type:'raise', amount: raiseAmount})}>RAISE</button>
             </div>
         </div>

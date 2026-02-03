@@ -1,0 +1,101 @@
+/* STAKE THEME - PROFESSIONAL DARK MODE */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+
+:root {
+  --bg-dark: #0f212e;
+  --panel-dark: #1a2c38;
+  --stake-green: #00e701;
+  --stake-red: #ff4d4d;
+  --text-grey: #b1bad3;
+}
+
+body { margin: 0; background-color: var(--bg-dark); font-family: 'Inter', sans-serif; color: white; overflow: hidden; }
+
+/* --- LAYOUTS --- */
+.stake-app { height: 100vh; display: flex; flex-direction: column; }
+.centered { justify-content: center; align-items: center; }
+
+/* --- MODALS --- */
+.modal-panel { background: var(--panel-dark); padding: 40px; border-radius: 8px; width: 320px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+.stake-title { margin-bottom: 20px; font-weight: 800; letter-spacing: 1px; }
+.stake-title span { color: white; }
+.stake-input { width: 100%; padding: 12px; background: #0f212e; border: 1px solid #2f4553; color: white; border-radius: 4px; margin-bottom: 10px; box-sizing: border-box; }
+.stake-btn { width: 100%; padding: 12px; border: none; font-weight: bold; border-radius: 4px; cursor: pointer; color: #0f212e; }
+.stake-btn.primary { background: white; }
+.stake-btn.success { background: var(--stake-green); }
+
+/* --- GAME HEADER --- */
+.top-bar { height: 60px; background: var(--panel-dark); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; border-bottom: 1px solid #2f4553; }
+.logo { font-weight: 800; font-size: 1.2rem; }
+.logo span { color: var(--stake-green); }
+.invite-btn { background: #2f4553; color: white; border: none; padding: 8px 15px; border-radius: 20px; cursor: pointer; }
+
+/* --- ARENA --- */
+.arena { flex: 1; display: flex; justify-content: center; align-items: center; position: relative; }
+.racetrack {
+  width: 900px; height: 450px;
+  background: #213743;
+  border-radius: 250px;
+  border: 10px solid #1a2c38;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 50px rgba(0,0,0,0.5);
+}
+
+.pot-container { background: rgba(0,0,0,0.4); padding: 5px 20px; border-radius: 20px; margin-bottom: 20px; text-align: center; border: 1px solid var(--stake-green); }
+.pot-label { font-size: 10px; color: var(--stake-green); letter-spacing: 1px; }
+.pot-amount { font-size: 1.2rem; font-weight: bold; }
+
+.board-cards { display: flex; gap: 8px; min-height: 80px; align-items: center; }
+.card-placeholder { color: var(--text-grey); font-style: italic; }
+
+/* --- CARDS --- */
+.card { width: 50px; height: 75px; background: white; border-radius: 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
+.card.red { color: #d0021b; }
+.card.back { background: repeating-linear-gradient(45deg, #2f4553, #2f4553 5px, #1a2c38 5px, #1a2c38 10px); }
+
+/* --- SEATS --- */
+.seat { position: absolute; width: 80px; text-align: center; transition: all 0.3s; }
+/* Positioning for 4 players */
+.seat-0 { bottom: -50px; left: 50%; transform: translateX(-50%); } 
+.seat-1 { top: 50%; left: -60px; transform: translateY(-50%); }
+.seat-2 { top: -50px; left: 50%; transform: translateX(-50%); }
+.seat-3 { top: 50%; right: -60px; transform: translateY(-50%); }
+
+.avatar img { width: 50px; height: 50px; border-radius: 50%; border: 3px solid #2f4553; background: #b1bad3; }
+.acting .avatar img { border-color: var(--stake-green); box-shadow: 0 0 15px var(--stake-green); }
+.player-tag { background: #1a2c38; border-radius: 4px; padding: 2px 5px; margin-top: -10px; position: relative; z-index: 2; border: 1px solid #2f4553; }
+.name { font-size: 10px; color: var(--text-grey); }
+.balance { font-size: 12px; font-weight: bold; color: white; }
+
+.hole-cards { display: flex; gap: 2px; position: absolute; top: -60px; left: 50%; transform: translateX(-50%) scale(0.9); z-index: 10; }
+
+/* --- CONTROLS --- */
+.controls-area { height: 90px; background: var(--panel-dark); border-top: 1px solid #2f4553; display: flex; align-items: center; justify-content: flex-end; padding: 0 30px; gap: 20px; }
+.bet-sliders button { background: #2f4553; color: var(--text-grey); border: none; padding: 8px 12px; border-radius: 4px; font-weight: bold; margin-right: 5px; cursor: pointer; }
+.actions { display: flex; gap: 10px; }
+.actions button { height: 50px; padding: 0 30px; border: none; border-radius: 4px; font-weight: bold; font-size: 1rem; cursor: pointer; }
+.btn-fold { background: #2f4553; color: var(--stake-red); }
+.btn-check { background: #2f4553; color: white; }
+.btn-raise { background: var(--stake-green); color: #0f212e; }
+.waiting-status { color: var(--text-grey); font-style: italic; }
+/* Positioning System */
+.seat-bottom { bottom: -50px; left: 50%; transform: translateX(-50%); } 
+.seat-top { top: -50px; left: 50%; transform: translateX(-50%); }
+.seat-left { top: 50%; left: -60px; transform: translateY(-50%); }
+.seat-right { top: 50%; right: -60px; transform: translateY(-50%); }
+
+.waiting-msg {
+  position: absolute;
+  top: 60%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #aaa;
+  font-style: italic;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }

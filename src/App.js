@@ -129,6 +129,7 @@ function App() {
                     isTurn = true;
                 }
                 
+                // Calculate style safely
                 let timerStyle = { width: "0%" };
                 if (isTurn) {
                     let percent = (gameState.timer / 30) * 100;
@@ -138,9 +139,43 @@ function App() {
                 let isMe = p.name === user.username;
                 let showCards = isMe || gameState.phase === 'showdown';
 
+                // Explicit Return
                 return (
                     <div key={i} className={`seat seat-${i} ${isTurn ? 'active-turn' : ''}`}>
                          {isTurn && <div className="timer-bar" style={timerStyle}></div>}
                          
                          <div className="avatar">{p.name[0]}</div>
                          <div className="p-info">
+                             <div className="p-name">{p.name} {i === gameState.dealerIndex && "👑"}</div>
+                             <div className="p-bal">${p.balance}</div>
+                         </div>
+                         
+                         <div className="hand">
+                             {p.hand.map((c, j) => (
+                                 <img key={j} src={getCardSrc(showCards ? c : 'XX')} 
+                                      className="real-card small" alt="card" />
+                             ))}
+                         </div>
+                         {p.currentBet > 0 && <div className="bet-bubble">${p.currentBet}</div>}
+                    </div>
+                );
+            })}
+        </div>
+
+        <div className={`controls-dock ${!isMyTurn ? 'disabled' : ''}`}>
+            <div className="slider-box">
+                <input type="range" min={gameState.highestBet} max={mySeat.balance} 
+                       value={raiseAmount} onChange={(e)=>setRaiseAmount(Number(e.target.value))} />
+                <span>Bet: ${raiseAmount}</span>
+            </div>
+            <div className="action-btns">
+                <button className="act-btn fold" onClick={()=>socket.emit('action', {type:'fold'})}>FOLD</button>
+                <button className="act-btn check" onClick={()=>socket.emit('action', {type:'call'})}>CALL / CHECK</button>
+                <button className="act-btn raise" onClick={()=>socket.emit('action', {type:'raise', amount: raiseAmount})}>RAISE</button>
+            </div>
+        </div>
+    </div>
+  );
+}
+
+export default App;

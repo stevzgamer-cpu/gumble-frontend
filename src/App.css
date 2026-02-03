@@ -1,151 +1,175 @@
-/* --- GLOBAL LUXURY THEME --- */
-body {
-  background-color: #050505; /* Void Black */
-  color: #e0e0e0;
-  font-family: 'Montserrat', sans-serif;
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap');
+
+/* GLOBAL RESET */
+body, html {
   margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: 'Montserrat', sans-serif;
+  background-color: #0a0a0a; /* True Black */
+  color: white;
   overflow: hidden;
+}
+
+/* --- LOGIN SCREEN --- */
+.login-container {
   height: 100vh;
   display: flex;
   justify-content: center;
   align-items: center;
+  background: radial-gradient(circle, #1a1a1a 0%, #000000 100%);
 }
 
-/* --- THE TABLE (WOOD & FELT) --- */
-.poker-table {
-  background: radial-gradient(circle, #0e4d26 0%, #031f0d 90%); /* Deep Green Gradient */
-  border: 20px solid #3e2723; /* Dark Oak Wood */
-  box-shadow: 
-    inset 0 0 50px #000, /* Inner Shadow */
-    0 0 50px rgba(0,0,0,0.8), /* Outer Drop Shadow */
-    0 0 0 5px #d4af37; /* Thin Gold Trim outside wood */
-  border-radius: 250px;
-  width: 1000px;
-  height: 500px;
-  position: relative;
-  margin-top: -50px;
+.login-card {
+  background: #111;
+  padding: 50px;
+  border-radius: 15px;
+  border: 1px solid #333;
+  text-align: center;
+  width: 350px;
+  box-shadow: 0 0 50px rgba(212, 175, 55, 0.1);
 }
 
-/* --- THE CARDS (Make them look real) --- */
-.card {
-  width: 50px;
-  height: 75px;
-  background: white;
-  border-radius: 6px;
-  display: inline-flex;
-  justify-content: center;
+.logo {
+  font-size: 40px;
+  margin: 0;
+  letter-spacing: 2px;
+}
+.gold { color: #d4af37; }
+.subtitle { color: #666; font-size: 12px; letter-spacing: 3px; margin-bottom: 30px; }
+
+.lux-input {
+  width: 100%;
+  padding: 15px;
+  margin-bottom: 15px;
+  background: #222;
+  border: 1px solid #444;
+  color: #fff;
+  border-radius: 5px;
+  box-sizing: border-box;
+}
+.lux-input:focus { border-color: #d4af37; outline: none; }
+
+.gold-btn {
+  background: linear-gradient(135deg, #d4af37, #aa8c2c);
+  border: none;
+  padding: 15px;
+  color: #000;
+  font-weight: 900;
+  width: 100%;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: 0.3s;
+}
+.gold-btn:hover { transform: scale(1.02); box-shadow: 0 0 20px rgba(212,175,55,0.4); }
+
+.toggle-text { margin-top: 20px; color: #888; cursor: pointer; font-size: 12px; }
+
+/* --- DASHBOARD --- */
+.dashboard-container {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
   align-items: center;
+  justify-content: center;
+  background: #0a0a0a;
+}
+.balance-badge {
+  background: #0f3d0f;
+  color: #2ecc71;
+  padding: 10px 20px;
+  border-radius: 20px;
+  border: 1px solid #2ecc71;
   font-weight: bold;
   font-size: 20px;
-  margin: 0 5px;
-  box-shadow: 2px 2px 5px rgba(0,0,0,0.5);
-  border: 1px solid #ccc;
-  position: relative;
+  margin-top: 10px;
 }
-
-/* Red Suits */
-.card:contains('h'), .card:contains('d') { color: #d00; }
-/* Black Suits */
-.card:contains('c'), .card:contains('s') { color: #000; }
-
-/* The "Back" of the card */
-.card.back {
-  background: repeating-linear-gradient(
-    45deg,
-    #800000,
-    #800000 10px,
-    #a00000 10px,
-    #a00000 20px
-  );
-  border: 2px solid white;
-  color: transparent !important;
-}
-
-/* --- PLAYERS & AVATARS --- */
-.player-seat {
-  position: absolute;
-  width: 120px;
-  text-align: center;
-  transition: all 0.5s ease;
-}
-
-/* Positioning Players around the oval */
-/* You (Bottom Center) */
-.player-seat.me { bottom: -60px; left: 50%; transform: translateX(-50%); }
-/* Opponent (Top Center) */
-.player-seat:not(.me) { top: -60px; left: 50%; transform: translateX(-50%); }
-
-.avatar-circle {
-  width: 60px;
-  height: 60px;
-  background: #222;
-  border: 3px solid #d4af37; /* Gold Border */
-  border-radius: 50%;
-  margin: 0 auto 5px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-  color: #d4af37;
-  box-shadow: 0 0 15px rgba(212, 175, 55, 0.3);
-}
-
-.player-info {
-  background: rgba(0,0,0,0.8);
-  padding: 5px;
-  border-radius: 10px;
-  border: 1px solid #444;
-}
-
-.p-name { display: block; font-size: 12px; color: #aaa; }
-.p-bal { display: block; font-size: 14px; color: #2ecc71; font-weight: bold; }
-
-/* --- THE POT (Center) --- */
-.pot-display {
-  position: absolute;
-  top: 35%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+.dashboard-menu {
   background: #111;
-  color: #fff;
-  padding: 5px 15px;
-  border-radius: 20px;
-  border: 1px solid #d4af37;
-  font-weight: bold;
-  box-shadow: 0 0 10px #d4af37;
+  padding: 40px;
+  border-radius: 10px;
+  border: 1px solid #333;
+  margin-top: 30px;
+  text-align: center;
 }
+.stakes-row { display: flex; gap: 10px; margin-bottom: 20px; }
+.stake-btn {
+  background: #222; border: 1px solid #444; color: #888;
+  padding: 10px 20px; cursor: pointer; flex: 1;
+}
+.stake-btn.active { border-color: #d4af37; color: #d4af37; background: #222; }
 
-/* --- COMMUNITY CARDS (Center) --- */
-.community-cards {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+/* --- POKER TABLE --- */
+.game-container {
+  height: 100vh;
+  background: #050505;
   display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
-/* --- CONTROLS (Bottom Right) --- */
-.controls-bar {
+.poker-table {
+  width: 900px;
+  height: 450px;
+  background: radial-gradient(circle, #0e4d26 0%, #031f0d 100%);
+  border: 20px solid #3e2723;
+  border-radius: 250px;
+  position: relative;
+  box-shadow: 0 0 100px rgba(0,0,0,0.5), inset 0 0 50px rgba(0,0,0,0.8);
+}
+
+.pot-container {
   position: absolute;
-  bottom: 20px;
-  right: 20px;
+  top: 30%; left: 50%; transform: translate(-50%, -50%);
+  text-align: center;
+}
+.pot-label { display: block; font-size: 10px; color: #aaa; letter-spacing: 2px; }
+.pot-amount { font-size: 24px; color: #fff; font-weight: bold; }
+
+.community-row {
+  position: absolute;
+  top: 50%; left: 50%; transform: translate(-50%, -50%);
   display: flex;
   gap: 10px;
 }
 
-.action-btn {
-  padding: 15px 30px;
-  border: none;
-  font-weight: bold;
-  font-size: 16px;
-  cursor: pointer;
-  border-radius: 5px;
-  text-transform: uppercase;
-  transition: 0.2s;
+/* CARDS */
+.card {
+  width: 50px; height: 75px;
+  background: white; border-radius: 5px;
+  display: flex; justify-content: center; align-items: center;
+  font-weight: bold; font-size: 18px; color: black;
+  box-shadow: 2px 2px 5px rgba(0,0,0,0.5);
+}
+.card.back {
+  background: repeating-linear-gradient(45deg, #800000, #800000 5px, #a00000 5px, #a00000 10px);
+  color: transparent; border: 2px solid #fff;
 }
 
+/* PLAYERS */
+.player-seat {
+  position: absolute; width: 100px; text-align: center;
+}
+.player-seat.me { bottom: -40px; left: 50%; transform: translateX(-50%); }
+.player-seat.opponent { top: -40px; left: 50%; transform: translateX(-50%); }
+
+.avatar {
+  width: 50px; height: 50px; background: #222; border: 2px solid #d4af37;
+  border-radius: 50%; margin: 0 auto; line-height: 50px; font-weight: bold; color: #d4af37;
+}
+.player-details { background: #000; padding: 5px; border-radius: 5px; margin-top: -10px; z-index: 2; position: relative; border: 1px solid #333; }
+.name { font-size: 12px; color: #888; }
+.balance { font-size: 14px; color: #2ecc71; }
+
+.hand { display: flex; justify-content: center; margin-top: 5px; gap: 2px; }
+
+/* CONTROLS */
+.controls-panel {
+  position: absolute; bottom: 20px; right: 20px; display: flex; gap: 10px;
+}
+.action-btn {
+  padding: 15px 30px; font-weight: bold; border: none; border-radius: 5px; cursor: pointer;
+}
 .check { background: #3498db; color: white; }
 .fold { background: #e74c3c; color: white; }
 .raise { background: #f1c40f; color: black; }
-
-.action-btn:hover { transform: scale(1.05); filter: brightness(1.2); }

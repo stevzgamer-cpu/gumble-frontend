@@ -4,7 +4,6 @@ import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
 import './App.css';
 
 const socket = io("https://gumble-backend.onrender.com");
-// --- ⚠️ PASTE YOUR GOOGLE CLIENT ID HERE ---
 const CLIENT_ID = "67123336647-b00rcsb6ni8s8unhi3qqg0bk6l2es62l.apps.googleusercontent.com"; 
 
 const getCardSrc = (code) => {
@@ -20,10 +19,12 @@ function App() {
   const [currentTable, setCurrentTable] = useState(null);
   const [gameState, setGameState] = useState(null);
   const [timer, setTimer] = useState(30);
-  
-  // Controls
-  const [buyInAmount, setBuyInAmount] = useState(100);
   const [raiseAmount, setRaiseAmount] = useState(0);
+  
+  // MODAL STATE
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [selectedTableId, setSelectedTableId] = useState(null);
+  const [modalBuyIn, setModalBuyIn] = useState(100);
 
   const handleAuth = async (e) => {
     e.preventDefault();
@@ -63,13 +64,17 @@ function App() {
     return () => { socket.off('gameState'); clearInterval(i); };
   }, [currentTable]);
 
-  const joinTable = (tableId) => {
-      if (buyInAmount < 10 || buyInAmount > user.balance) {
-          alert("Invalid Buy-In Amount");
-          return;
-      }
-      socket.emit('joinTable', { tableId, userId: user._id, buyIn: buyInAmount });
-      setCurrentTable(tableId);
+  const openJoinModal = (tableId) => {
+      setSelectedTableId(tableId);
+      setModalBuyIn(100); // Reset
+      setShowJoinModal(true);
+  };
+
+  const confirmJoin = () => {
+      if(modalBuyIn > user.balance) return alert("Insufficient Funds");
+      socket.emit('joinTable', { tableId: selectedTableId, userId: user._id, buyIn: modalBuyIn });
+      setCurrentTable(selectedTableId);
+      setShowJoinModal(false);
   };
 
   const sendAction = (type) => {
@@ -100,18 +105,26 @@ function App() {
           <div className="table-grid">
               {tables.map(t => (
                   <div key={t.id} className="table-card">
-                      <h3>{t.name}</h3>
-                      <p>{t.players} Players</p>
-                      
-                      <div className="buyin-control">
-                          <label>Buy In: ${buyInAmount}</label>
-                          <input type="range" min="10" max={user.balance} value={buyInAmount} onChange={e=>setBuyInAmount(Number(e.target.value))} />
-                      </div>
-                      
-                      <button className="gold-btn" onClick={() => joinTable(t.id)}>JOIN</button>
+                      <h3>{t.name}</h3><p>{t.players} Players</p>
+                      <button className="gold-btn" onClick={() => openJoinModal(t.id)}>JOIN</button>
                   </div>
               ))}
           </div>
+
+          {/* JOIN MODAL */}
+          {showJoinModal && (
+              <div className="modal-overlay">
+                  <div className="modal-box">
+                      <h2>Buy In</h2>
+                      <p>Amount: ${modalBuyIn}</p>
+                      <input type="range" min="10" max={user.balance} value={modalBuyIn} onChange={(e)=>setModalBuyIn(Number(e.target.value))} />
+                      <div className="modal-actions">
+                          <button className="gold-btn" onClick={confirmJoin}>CONFIRM</button>
+                          <button className="red-btn" onClick={()=>setShowJoinModal(false)}>CANCEL</button>
+                      </div>
+                  </div>
+              </div>
+          )}
       </div>
   );
 
@@ -123,6 +136,7 @@ function App() {
 
   return (
     <div className="game-screen">
+        <button className="leave-btn" onClick={()=>{socket.emit('leaveTable', {tableId: currentTable}); setCurrentTable(null);}}>EXIT</button>
         <div className="poker-table">
             <div className="table-center">
                 <div className="pot-pill">POT: ${gameState.pot}</div>
@@ -131,34 +145,25 @@ function App() {
                 </div>
                 {gameState.phase === 'showdown' && <div className="winner-msg">WINNER: {gameState.winners.join(", ")}</div>}
             </div>
-            
             {gameState.players.map((p, i) => {
                 const isTurn = gameState.players[gameState.turnIndex]?.id === p.id;
                 const timerWidth = isTurn ? `${(timer / 30) * 100}%` : '0%';
-                
-                // FORCE CARD VISIBILITY: Only hide if NOT me AND NOT showdown
                 const showCards = p.name === user.username || gameState.phase === 'showdown';
-
                 return (
                     <div key={i} className={`seat seat-${i} ${isTurn ? 'active-turn' : ''} ${p.folded ? 'folded' : ''}`}>
                          {isTurn && <div className="timer-bar" style={{width: timerWidth}}></div>}
                          <div className="avatar">{p.name[0]}</div>
                          <div className="p-info"><div>{p.name}</div><div className="p-bal">${p.balance}</div></div>
-                         <div className="hand">
-                             {p.hand.map((c, j) => (
-                                <img key={j} src={getCardSrc(showCards ? c : 'XX')} className="real-card small" alt="card" />
-                             ))}
-                         </div>
+                         <div className="hand">{p.hand.map((c, j) => <img key={j} src={getCardSrc(showCards ? c : 'XX')} className="real-card small" alt="card" />)}</div>
                          {p.currentBet > 0 && <div className="bet-bubble">${p.currentBet}</div>}
                     </div>
                 );
             })}
         </div>
-        
         <div className={`controls-dock ${!isMyTurn ? 'disabled' : ''}`}>
             <div className="slider-box">
                 <input type="range" min={gameState.highestBet + 10} max={myPlayer?.balance} value={raiseAmount} onChange={(e)=>setRaiseAmount(Number(e.target.value))} />
-                <span>Raise To: ${raiseAmount}</span>
+                <span>Raise: ${raiseAmount}</span>
             </div>
             <div className="action-btns">
                 <button className="act-btn fold" onClick={()=>sendAction('fold')}>FOLD</button>

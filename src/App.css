@@ -57,6 +57,13 @@ body { background: #050505; color: white; margin: 0; font-family: 'Montserrat', 
 .active-row .block-btn:hover { background: var(--gold); box-shadow: 0 0 15px var(--gold); border-color: white; }
 .cleared-row .block-btn { background: #00ff00; border-color: #00ff00; }
 
+/* MINES GRID */
+.mines-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin: 0 auto; }
+.tile { width: 60px; height: 60px; background: #222; border: none; font-size: 24px; cursor: pointer; border-bottom: 3px solid #111; border-radius: 5px; }
+.tile:hover:not(:disabled) { background: #333; transform: translateY(-2px); }
+.tile.gem { background: #00e701; box-shadow: 0 0 15px #00e701; }
+.tile.boom { background: #ff4d4d; }
+
 /* CONTROLS BAR */
 .controls-bar { background: #111; padding: 20px; border-radius: 10px; display: flex; gap: 20px; align-items: center; border: 1px solid var(--border); }
 .input-group { display: flex; flex-direction: column; gap: 5px; }

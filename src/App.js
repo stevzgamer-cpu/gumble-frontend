@@ -19,7 +19,11 @@ function App() {
   // States
   const [bjState, setBjState] = useState(null);
   const [dragonState, setDragonState] = useState({ row: 0, status: 'idle' });
+  const [minesState, setMinesState] = useState({ grid: Array(25).fill(null), status: 'idle' });
+  
+  // Config
   const [dragonDiff, setDragonDiff] = useState('easy');
+  const [minesCount, setMinesCount] = useState(3);
 
   const showNotif = (msg, type) => {
       setNotification({ msg, type });
@@ -65,6 +69,33 @@ function App() {
       showNotif(`CASHOUT $${data.win.toFixed(2)}`, 'win');
   };
 
+  // --- MINES ---
+  const startMines = async () => {
+      const res = await fetch(`${API_URL}/mines/start`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({userId:user._id, bet, mines: minesCount}) });
+      setMinesState({ ...await res.json(), grid: Array(25).fill(null) }); refreshUser();
+  };
+  const clickMine = async (i) => {
+      if(minesState.status !== 'playing' || minesState.grid[i]) return;
+      const res = await fetch(`${API_URL}/mines/click`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({userId:user._id, tile: i}) });
+      const data = await res.json();
+      const newGrid = [...minesState.grid];
+      if(data.status === 'boom') {
+          data.grid.forEach((type, idx) => newGrid[idx] = type === 'bomb' ? '💣' : '💎');
+          setMinesState({ ...data, grid: newGrid });
+          showNotif("BOOM!", 'lose');
+      } else {
+          newGrid[i] = '💎';
+          setMinesState({ ...data, grid: newGrid });
+      }
+  };
+  const cashMines = async () => {
+      const res = await fetch(`${API_URL}/mines/cashout`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({userId:user._id}) });
+      const data = await res.json();
+      setMinesState({ ...minesState, status: 'won' }); refreshUser();
+      showNotif(`CASHOUT $${data.win.toFixed(2)}`, 'win');
+  };
+
+
   if(!user) return (
       <div className="login-screen">
           <div className="login-box">
@@ -83,6 +114,7 @@ function App() {
             <div className="nav-group">
                 <div className={`nav-item ${activeGame==='bj'?'active':''}`} onClick={()=>setActiveGame('bj')}>♠️ Blackjack</div>
                 <div className={`nav-item ${activeGame==='dragon'?'active':''}`} onClick={()=>setActiveGame('dragon')}>🐉 Dragon Tower</div>
+                <div className={`nav-item ${activeGame==='mines'?'active':''}`} onClick={()=>setActiveGame('mines')}>💣 Mines</div>
             </div>
             <div className="user-panel">
                 <div className="label">BALANCE</div>
@@ -100,6 +132,10 @@ function App() {
                     <div className="game-card" onClick={()=>setActiveGame('dragon')}>
                         <div className="icon">🐉</div>
                         <h2>Dragon Tower</h2>
+                    </div>
+                    <div className="game-card" onClick={()=>setActiveGame('mines')}>
+                        <div className="icon">💣</div>
+                        <h2>Mines</h2>
                     </div>
                 </div>
             )}
@@ -174,6 +210,29 @@ function App() {
                              <button className="act-btn cashout" onClick={cashDragon}>CASHOUT ${(bet * dragonState.multiplier).toFixed(2)}</button>
                         ) : (
                              <button className="act-btn play" onClick={startDragon}>PLAY</button>
+                        )}
+                    </div>
+                </div>
+            )}
+
+             {activeGame === 'mines' && (
+                <div className="game-wrapper">
+                    <div className="game-header"><h2>MINES</h2></div>
+                    <div className="mines-grid">
+                        {minesState.grid.map((val, i) => (
+                            <button key={i} className={`tile ${val ? 'revealed' : ''} ${val==='💣'?'boom':''} ${val==='💎'?'gem':''}`} 
+                                onClick={()=>clickMine(i)} disabled={minesState.status !== 'playing' || val}>
+                                {val}
+                            </button>
+                        ))}
+                    </div>
+                    <div className="controls-bar">
+                        <div className="input-group"><label>BET</label><input type="number" value={bet} onChange={e=>setBet(Number(e.target.value))} /></div>
+                        <div className="input-group"><label>MINES</label><select value={minesCount} onChange={e=>setMinesCount(Number(e.target.value))}><option value="3">3</option><option value="5">5</option></select></div>
+                        {minesState.status === 'playing' ? (
+                            <button className="act-btn cashout" onClick={cashMines}>CASHOUT ${(bet * minesState.multiplier).toFixed(2)}</button>
+                        ) : (
+                            <button className="act-btn play" onClick={startMines}>PLAY</button>
                         )}
                     </div>
                 </div>

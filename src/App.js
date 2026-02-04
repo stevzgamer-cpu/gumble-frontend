@@ -7,211 +7,208 @@ const CLIENT_ID = "67123336647-b00rcsb6ni8s8unhi3qqg0bk6l2es62l.apps.googleuserc
 
 function App() {
   const [user, setUser] = useState(null);
-  const [activeGame, setActiveGame] = useState('menu'); // menu, blackjack, mines, keno, dragon
-  const [message, setMessage] = useState("");
+  const [activeGame, setActiveGame] = useState('mines'); // mines, bj, dragon
+  const [bet, setBet] = useState(10);
   
   // Game States
-  const [bet, setBet] = useState(10);
+  const [minesState, setMinesState] = useState({ grid: Array(25).fill(null), status: 'idle', multiplier: 1.0 });
   const [bjState, setBjState] = useState(null);
-  const [minesConfig, setMinesConfig] = useState({ count: 3 });
-  const [kenoNums, setKenoNums] = useState([]);
-  const [lastResult, setLastResult] = useState(null);
+  const [dragonState, setDragonState] = useState({ row: 0, status: 'idle', multiplier: 1.0 });
+  
+  // Configs
+  const [minesCount, setMinesCount] = useState(3);
+  const [dragonDiff, setDragonDiff] = useState('easy');
 
-  const refreshUser = async () => {
-      if(!user) return;
-      const res = await fetch(`${API_URL}/user/${user._id}`);
-      setUser(await res.json());
+  const refreshUser = async () => { if(user) { const res = await fetch(`${API_URL}/user/${user._id}`); setUser(await res.json()); }};
+  const handleLogin = async (c) => { 
+      const res = await fetch(`${API_URL}/auth/google`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({token:c.credential}) });
+      if(res.ok) setUser(await res.json());
   };
 
-  const handleLogin = async (creds) => {
-      const res = await fetch(`${API_URL}/auth/google`, {
-          method: 'POST', headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({token: creds.credential})
-      });
+  // --- MINES LOGIC ---
+  const startMines = async () => {
+      const res = await fetch(`${API_URL}/mines/start`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({userId:user._id, bet, mines: minesCount}) });
+      setMinesState({ ...await res.json(), grid: Array(25).fill(null) });
+      refreshUser();
+  };
+  const clickMine = async (i) => {
+      if(minesState.status !== 'playing' || minesState.grid[i]) return;
+      const res = await fetch(`${API_URL}/mines/click`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({userId:user._id, tile: i}) });
       const data = await res.json();
-      if(res.ok) setUser(data);
-  };
-
-  // --- BLACKJACK FUNCS ---
-  const playBj = async (action) => {
-      if(action === 'deal') {
-          const res = await fetch(`${API_URL}/blackjack/deal`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({userId: user._id, bet}) });
-          setBjState(await res.json());
+      const newGrid = [...minesState.grid];
+      if(data.status === 'boom') {
+          data.grid.forEach((type, idx) => newGrid[idx] = type === 'bomb' ? '💣' : '💎');
+          setMinesState({ ...data, grid: newGrid });
       } else {
-          const res = await fetch(`${API_URL}/blackjack/${action}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({userId: user._id}) });
-          setBjState(await res.json());
+          newGrid[i] = '💎';
+          setMinesState({ ...data, grid: newGrid });
       }
-      refreshUser();
   };
-
-  // --- MINES FUNCS ---
-  const playMines = async (tileIdx) => {
-      const res = await fetch(`${API_URL}/mines/play`, { 
-          method: 'POST', headers: {'Content-Type': 'application/json'}, 
-          body: JSON.stringify({userId: user._id, bet, minesCount: minesConfig.count, clickedTile: tileIdx}) 
-      });
+  const cashoutMines = async () => {
+      const res = await fetch(`${API_URL}/mines/cashout`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({userId:user._id}) });
       const data = await res.json();
-      setLastResult(data);
+      setMinesState({ ...minesState, status: 'won', winAmount: data.win });
       refreshUser();
-      if(data.result === 'bomb') setMessage(`💥 BOOM! You hit a mine.`);
-      else setMessage(`💎 GEM! Won $${data.win}`);
   };
 
-  // --- KENO FUNCS ---
-  const playKeno = async () => {
-      if(kenoNums.length === 0) return alert("Pick numbers!");
-      const res = await fetch(`${API_URL}/keno/play`, { 
-          method: 'POST', headers: {'Content-Type': 'application/json'}, 
-          body: JSON.stringify({userId: user._id, bet, numbers: kenoNums}) 
-      });
+  // --- BLACKJACK LOGIC ---
+  const dealBj = async () => {
+      const res = await fetch(`${API_URL}/blackjack/deal`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({userId:user._id, bet}) });
+      setBjState(await res.json());
+      refreshUser();
+  };
+  const actionBj = async (act) => {
+      const res = await fetch(`${API_URL}/blackjack/action`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({userId:user._id, action: act}) });
+      setBjState(await res.json());
+      refreshUser();
+  };
+
+  // --- DRAGON LOGIC ---
+  const startDragon = async () => {
+      const res = await fetch(`${API_URL}/dragon/start`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({userId:user._id, bet, difficulty: dragonDiff}) });
+      setDragonState(await res.json());
+      refreshUser();
+  };
+  const stepDragon = async (choice) => {
+      const res = await fetch(`${API_URL}/dragon/step`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({userId:user._id, choice}) });
       const data = await res.json();
-      setLastResult(data);
-      refreshUser();
+      setDragonState({ ...dragonState, ...data });
   };
-
-  // --- DRAGON TOWER FUNCS ---
-  const playDragon = async (diff) => {
-      const res = await fetch(`${API_URL}/dragon/play`, { 
-          method: 'POST', headers: {'Content-Type': 'application/json'}, 
-          body: JSON.stringify({userId: user._id, bet, difficulty: diff}) 
-      });
+  const cashoutDragon = async () => {
+      const res = await fetch(`${API_URL}/dragon/cashout`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({userId:user._id}) });
       const data = await res.json();
-      setLastResult(data);
+      setDragonState({ ...dragonState, status: 'won', winAmount: data.win });
       refreshUser();
-      setMessage(data.result === 'safe' ? `🐉 CLIMBED! Won $${data.win}` : "💀 FELL!");
   };
 
-  if (!user) return (
+  if(!user) return (
       <div className="login-screen">
-          <h1 className="logo">GUMBLE<span className="gold">CASINO</span></h1>
-          <GoogleOAuthProvider clientId={CLIENT_ID}>
-              <GoogleLogin onSuccess={handleLogin} theme="filled_black" shape="pill" />
-          </GoogleOAuthProvider>
+          <div className="login-box">
+             <h1>GUMBLE<span className="gold">STAKE</span></h1>
+             <GoogleOAuthProvider clientId={CLIENT_ID}><GoogleLogin onSuccess={handleLogin} theme="filled_black" shape="pill" /></GoogleOAuthProvider>
+          </div>
       </div>
   );
 
   return (
-    <div className="app">
-        <div className="header">
-            <div className="logo" onClick={()=>setActiveGame('menu')}>GUMBLE</div>
-            <div className="bal">Balance: ${user.balance.toFixed(2)}</div>
-            <button className="back-btn" onClick={()=>setActiveGame('menu')}>MENU</button>
+    <div className="app-layout">
+        <div className="sidebar">
+            <div className="logo">GUMBLE</div>
+            <div className={`nav-item ${activeGame==='mines'?'active':''}`} onClick={()=>setActiveGame('mines')}>💣 Mines</div>
+            <div className={`nav-item ${activeGame==='bj'?'active':''}`} onClick={()=>setActiveGame('bj')}>♠️ Blackjack</div>
+            <div className={`nav-item ${activeGame==='dragon'?'active':''}`} onClick={()=>setActiveGame('dragon')}>🐉 Dragon</div>
+            <div className="user-panel">
+                <div className="uname">{user.username}</div>
+                <div className="bal">${user.balance.toFixed(2)}</div>
+            </div>
         </div>
 
-        {/* --- MAIN MENU --- */}
-        {activeGame === 'menu' && (
-            <div className="menu-grid">
-                <div className="card-game" onClick={()=>setActiveGame('blackjack')}>
-                    <h2>♠️ BLACKJACK</h2>
-                    <p>Beat the Dealer</p>
-                </div>
-                <div className="card-game" onClick={()=>setActiveGame('mines')}>
-                    <h2>💣 MINES</h2>
-                    <p>Don't Explode</p>
-                </div>
-                <div className="card-game" onClick={()=>setActiveGame('keno')}>
-                    <h2>🎱 KENO</h2>
-                    <p>Lucky Numbers</p>
-                </div>
-                <div className="card-game" onClick={()=>setActiveGame('dragon')}>
-                    <h2>🐉 DRAGON TOWER</h2>
-                    <p>Climb & Win</p>
-                </div>
-            </div>
-        )}
-
-        {/* --- BLACKJACK UI --- */}
-        {activeGame === 'blackjack' && (
-            <div className="game-container">
-                <h1>BLACKJACK (Pays 2:1)</h1>
-                {!bjState || bjState.status !== 'playing' ? (
-                    <div className="bet-controls">
-                        <input type="number" value={bet} onChange={e=>setBet(Number(e.target.value))} />
-                        <button className="gold-btn" onClick={()=>playBj('deal')}>DEAL (${bet})</button>
-                        {bjState && <div className="result-msg">{bjState.status.toUpperCase()}</div>}
+        <div className="main-stage">
+            {/* MINES GAME */}
+            {activeGame === 'mines' && (
+                <div className="game-wrapper">
+                    <div className="game-board">
+                        <div className="mines-grid">
+                            {minesState.grid.map((val, i) => (
+                                <button key={i} 
+                                    className={`tile ${val ? 'revealed' : ''} ${val==='💣'?'boom':''} ${val==='💎'?'gem':''}`} 
+                                    onClick={()=>clickMine(i)}
+                                    disabled={minesState.status !== 'playing' || val}
+                                >
+                                    {val}
+                                </button>
+                            ))}
+                        </div>
+                        {minesState.status === 'won' && <div className="win-overlay">CASHED OUT: ${minesState.winAmount?.toFixed(2)}</div>}
+                        {minesState.status === 'boom' && <div className="lose-overlay">BUSTED!</div>}
                     </div>
-                ) : (
-                    <div className="bj-table">
-                        <div className="hand dealer">
-                            <h3>Dealer</h3>
-                            {bjState.dealerHand.map((c,i) => <div key={i} className="card">{c.rank}{c.suit}</div>)}
+                    <div className="controls">
+                        <div className="control-group">
+                            <label>Bet Amount</label>
+                            <input type="number" value={bet} onChange={e=>setBet(Number(e.target.value))} />
                         </div>
-                        <div className="hand player">
-                            <h3>You</h3>
-                            {bjState.playerHand.map((c,i) => <div key={i} className="card">{c.rank}{c.suit}</div>)}
+                        <div className="control-group">
+                            <label>Mines</label>
+                            <select value={minesCount} onChange={e=>setMinesCount(Number(e.target.value))}>
+                                <option value="1">1</option><option value="3">3</option><option value="5">5</option><option value="10">10</option>
+                            </select>
                         </div>
-                        <div className="actions">
-                            <button className="act-btn hit" onClick={()=>playBj('hit')}>HIT</button>
-                            <button className="act-btn stand" onClick={()=>playBj('stand')}>STAND</button>
-                        </div>
+                        {minesState.status === 'playing' ? (
+                            <button className="action-btn cashout" onClick={cashoutMines}>
+                                CASHOUT ${(bet * minesState.multiplier).toFixed(2)} ({minesState.multiplier.toFixed(2)}x)
+                            </button>
+                        ) : (
+                            <button className="action-btn play" onClick={startMines}>PLAY</button>
+                        )}
                     </div>
-                )}
-            </div>
-        )}
+                </div>
+            )}
 
-        {/* --- MINES UI --- */}
-        {activeGame === 'mines' && (
-            <div className="game-container">
-                <h1>MINES</h1>
-                <div className="bet-controls">
-                    Bet: <input type="number" value={bet} onChange={e=>setBet(Number(e.target.value))} />
-                    Mines: <select onChange={e=>setMinesConfig({count: Number(e.target.value)})}>
-                        <option value="1">1 Mine</option><option value="3">3 Mines</option><option value="5">5 Mines</option>
-                    </select>
+            {/* BLACKJACK GAME */}
+            {activeGame === 'bj' && (
+                <div className="game-wrapper">
+                    <div className="bj-board">
+                        {bjState?.status === 'playing' || bjState?.status === 'won' || bjState?.status === 'lost' ? (
+                            <>
+                                <div className="hand dealer">
+                                    <h3>Dealer ({bjState.status === 'playing' ? '?' : 'Final'})</h3>
+                                    <div className="cards">{bjState.dHand.map((c,i) => <div key={i} className="card">{c.rank}{c.suit}</div>)}</div>
+                                </div>
+                                <div className="hand player">
+                                    <h3>You</h3>
+                                    <div className="cards">{bjState.pHand.map((c,i) => <div key={i} className="card">{c.rank}{c.suit}</div>)}</div>
+                                </div>
+                                {bjState.status !== 'playing' && <div className="bj-result">{bjState.status.toUpperCase()}</div>}
+                            </>
+                        ) : <div className="placeholder">Place your bet to deal cards</div>}
+                    </div>
+                    <div className="controls">
+                        <div className="control-group"><label>Bet</label><input type="number" value={bet} onChange={e=>setBet(Number(e.target.value))} /></div>
+                        {bjState?.status === 'playing' ? (
+                            <div className="bj-actions">
+                                <button className="action-btn hit" onClick={()=>actionBj('hit')}>HIT</button>
+                                <button className="action-btn stand" onClick={()=>actionBj('stand')}>STAND</button>
+                            </div>
+                        ) : (
+                            <button className="action-btn play" onClick={dealBj}>DEAL</button>
+                        )}
+                    </div>
                 </div>
-                <h3 style={{color: '#d4af37'}}>{message}</h3>
-                <div className="mines-grid">
-                    {Array(25).fill(0).map((_, i) => (
-                        <div key={i} className="mine-tile" onClick={()=>playMines(i)}>❓</div>
-                    ))}
-                </div>
-            </div>
-        )}
+            )}
 
-        {/* --- KENO UI --- */}
-        {activeGame === 'keno' && (
-            <div className="game-container">
-                <h1>KENO (Pick up to 10)</h1>
-                <div className="bet-controls">
-                    Bet: <input type="number" value={bet} onChange={e=>setBet(Number(e.target.value))} />
-                    <button className="gold-btn" onClick={playKeno}>PLAY</button>
+            {/* DRAGON GAME */}
+            {activeGame === 'dragon' && (
+                <div className="game-wrapper">
+                    <div className="dragon-tower">
+                         {[...Array(8)].map((_, r) => {
+                             const rowIndex = 7 - r; // Visual render top-down, but logic bottom-up
+                             const isCurrent = dragonState.row === rowIndex;
+                             return (
+                                 <div key={r} className={`tower-row ${isCurrent ? 'active' : ''}`}>
+                                     <button onClick={()=>stepDragon(0)} disabled={!isCurrent}>🧱</button>
+                                     <button onClick={()=>stepDragon(1)} disabled={!isCurrent}>🧱</button>
+                                     <button onClick={()=>stepDragon(2)} disabled={!isCurrent}>🧱</button>
+                                 </div>
+                             )
+                         })}
+                    </div>
+                    <div className="controls">
+                         <div className="control-group"><label>Bet</label><input type="number" value={bet} onChange={e=>setBet(Number(e.target.value))} /></div>
+                         <div className="control-group"><label>Diff</label><select value={dragonDiff} onChange={e=>setDragonDiff(e.target.value)}><option value="easy">Easy</option><option value="hard">Hard</option></select></div>
+                         {dragonState.status === 'playing' ? (
+                            <button className="action-btn cashout" onClick={cashoutDragon}>
+                                CASHOUT ${(bet * dragonState.multiplier).toFixed(2)}
+                            </button>
+                        ) : (
+                            <button className="action-btn play" onClick={startDragon}>PLAY</button>
+                        )}
+                         {dragonState.status === 'dead' && <div className="lose-overlay">FELL!</div>}
+                         {dragonState.status === 'won' && <div className="win-overlay">CLIMBED!</div>}
+                    </div>
                 </div>
-                {lastResult && <div className="result-msg">Matched: {lastResult.matches} | Won: ${lastResult.payout}</div>}
-                <div className="keno-grid">
-                    {Array(40).fill(0).map((_, i) => {
-                        const n = i+1;
-                        const isSelected = kenoNums.includes(n);
-                        const isDrawn = lastResult?.draw.includes(n);
-                        return (
-                            <div key={n} 
-                                 className={`keno-ball ${isSelected ? 'selected' : ''} ${isDrawn ? 'drawn' : ''}`}
-                                 onClick={() => {
-                                     if(isSelected) setKenoNums(kenoNums.filter(x=>x!==n));
-                                     else if(kenoNums.length<10) setKenoNums([...kenoNums, n]);
-                                 }}
-                            >{n}</div>
-                        );
-                    })}
-                </div>
-            </div>
-        )}
-
-        {/* --- DRAGON UI --- */}
-        {activeGame === 'dragon' && (
-            <div className="game-container">
-                <h1>DRAGON TOWER</h1>
-                <div className="bet-controls">
-                    Bet: <input type="number" value={bet} onChange={e=>setBet(Number(e.target.value))} />
-                </div>
-                <h3 style={{color: message.includes('Win') ? 'green' : 'red'}}>{message}</h3>
-                <div className="dragon-actions">
-                    <button className="act-btn safe" onClick={()=>playDragon('easy')}>EASY (1.4x)</button>
-                    <button className="act-btn risk" onClick={()=>playDragon('hard')}>HARD (2.5x)</button>
-                </div>
-            </div>
-        )}
+            )}
+        </div>
     </div>
   );
 }
-
 export default App;

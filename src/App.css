@@ -1,43 +1,74 @@
-body { background: #0a0a0a; color: white; font-family: 'Arial', sans-serif; margin: 0; }
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
 
-.login-screen { height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; background: radial-gradient(circle, #1a1a1a, #000); }
-.logo { font-size: 40px; font-weight: bold; margin-bottom: 20px; cursor: pointer; }
-.gold { color: #d4af37; }
+body { background: #0f1923; color: white; margin: 0; font-family: 'Inter', sans-serif; overflow: hidden; }
+* { box-sizing: border-box; }
 
-.header { padding: 20px; background: #111; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #333; }
-.bal { background: #222; padding: 10px 20px; border-radius: 20px; border: 1px solid #d4af37; color: #d4af37; font-weight: bold; }
-.back-btn { background: #333; color: white; border: none; padding: 10px; cursor: pointer; border-radius: 5px; }
+/* LAYOUT */
+.app-layout { display: flex; height: 100vh; width: 100vw; }
+.sidebar { width: 240px; background: #1a242d; padding: 20px; display: flex; flex-direction: column; border-right: 1px solid #2f3b46; }
+.main-stage { flex: 1; background: radial-gradient(circle at center, #1a2c38 0%, #0f1923 100%); display: flex; justify-content: center; align-items: center; padding: 20px; }
 
-/* MENU */
-.menu-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; padding: 40px; max-width: 1000px; margin: 0 auto; }
-.card-game { background: #1a1a1a; padding: 40px; border-radius: 15px; text-align: center; border: 1px solid #333; cursor: pointer; transition: 0.2s; }
-.card-game:hover { transform: translateY(-5px); border-color: #d4af37; background: #222; }
+/* SIDEBAR */
+.logo { font-size: 28px; font-weight: 900; color: white; margin-bottom: 40px; letter-spacing: 2px; }
+.nav-item { padding: 15px; margin-bottom: 10px; border-radius: 8px; cursor: pointer; color: #8fa0b0; font-weight: 700; transition: 0.2s; }
+.nav-item:hover { background: #2f3b46; color: white; }
+.nav-item.active { background: #00e701; color: black; box-shadow: 0 0 15px rgba(0, 231, 1, 0.4); }
+.user-panel { margin-top: auto; background: #0f1923; padding: 15px; border-radius: 8px; border: 1px solid #2f3b46; }
+.uname { font-size: 12px; color: #8fa0b0; }
+.bal { font-size: 18px; font-weight: bold; color: #00e701; }
 
-/* GAME CONTAINERS */
-.game-container { max-width: 600px; margin: 40px auto; text-align: center; }
-.bet-controls { margin: 20px 0; display: flex; gap: 10px; justify-content: center; align-items: center; }
-input, select { padding: 10px; background: #222; border: 1px solid #444; color: white; border-radius: 5px; width: 100px; }
-.gold-btn { background: #d4af37; border: none; padding: 10px 20px; font-weight: bold; cursor: pointer; border-radius: 5px; }
+/* GAME WRAPPER */
+.game-wrapper { width: 100%; max-width: 900px; display: flex; gap: 20px; height: 80%; }
+.game-board { flex: 3; background: #213743; border-radius: 12px; position: relative; display: flex; justify-content: center; align-items: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); overflow: hidden; }
+.controls { flex: 1; background: #1a242d; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 15px; border: 1px solid #2f3b46; }
+
+/* MINES GRID */
+.mines-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; width: 80%; aspect-ratio: 1; }
+.tile { background: #2f4553; border: none; border-radius: 8px; font-size: 24px; cursor: pointer; transition: 0.1s; border-bottom: 4px solid #1a262f; }
+.tile:hover:not(:disabled) { transform: translateY(-2px); background: #3b5565; }
+.tile:active { transform: translateY(2px); border-bottom: none; }
+.tile.revealed { background: #0f1923; border: none; cursor: default; }
+.tile.gem { background: #00e701; box-shadow: 0 0 15px #00e701; border: none; color: white; }
+.tile.boom { background: #ff4d4d; box-shadow: 0 0 15px #ff4d4d; border: none; }
 
 /* BLACKJACK */
-.bj-table { background: #0e4d26; padding: 40px; border-radius: 100px; border: 10px solid #3e2723; margin-top: 20px; }
-.hand { margin: 20px 0; min-height: 100px; }
-.card { display: inline-block; width: 50px; height: 70px; background: white; color: black; margin: 5px; border-radius: 5px; line-height: 70px; font-weight: bold; font-size: 20px; }
-.actions { display: flex; gap: 20px; justify-content: center; }
-.act-btn { padding: 15px 30px; border: none; font-weight: bold; cursor: pointer; border-radius: 5px; color: white; }
-.hit { background: #2ecc71; } .stand { background: #e74c3c; }
+.bj-board { display: flex; flex-direction: column; justify-content: center; gap: 40px; text-align: center; width: 100%; }
+.cards { display: flex; justify-content: center; gap: 10px; margin-top: 10px; }
+.card { width: 60px; height: 90px; background: white; color: black; border-radius: 5px; font-weight: bold; font-size: 20px; line-height: 90px; box-shadow: 2px 2px 10px rgba(0,0,0,0.5); }
+.bj-result { font-size: 30px; font-weight: 900; color: #ffeb3b; text-shadow: 0 0 10px black; margin-top: 20px; }
 
-/* MINES */
-.mines-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; max-width: 400px; margin: 0 auto; }
-.mine-tile { background: #333; height: 60px; border-radius: 8px; cursor: pointer; line-height: 60px; font-size: 24px; border-bottom: 4px solid #111; }
-.mine-tile:active { border-bottom: none; transform: translateY(4px); }
+/* DRAGON TOWER */
+.dragon-tower { display: flex; flex-direction: column; gap: 5px; width: 100%; align-items: center; }
+.tower-row { display: flex; gap: 10px; }
+.tower-row button { width: 60px; height: 40px; background: #2f4553; border: none; border-radius: 4px; font-size: 20px; cursor: not-allowed; opacity: 0.5; }
+.tower-row.active button { cursor: pointer; opacity: 1; background: #00e701; box-shadow: 0 0 10px #00e701; }
 
-/* KENO */
-.keno-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; margin-top: 20px; }
-.keno-ball { background: #222; width: 40px; height: 40px; border-radius: 50%; line-height: 40px; cursor: pointer; font-weight: bold; }
-.keno-ball.selected { background: #f1c40f; color: black; }
-.keno-ball.drawn { border: 3px solid #e74c3c; }
+/* CONTROLS UI */
+.control-group label { display: block; font-size: 12px; color: #8fa0b0; margin-bottom: 5px; }
+.control-group input, .control-group select { width: 100%; background: #0f1923; border: 1px solid #2f3b46; padding: 10px; color: white; border-radius: 5px; font-weight: bold; }
+.action-btn { width: 100%; padding: 15px; border: none; border-radius: 5px; font-weight: 900; cursor: pointer; font-size: 16px; margin-top: auto; }
+.play { background: #00e701; color: black; box-shadow: 0 5px 0 #00b301; }
+.play:active { transform: translateY(2px); box-shadow: none; }
+.cashout { background: #ffeb3b; color: black; box-shadow: 0 5px 0 #fbc02d; }
+.hit { background: #3498db; color: white; margin-bottom: 10px; }
+.stand { background: #e74c3c; color: white; }
 
-/* DRAGON */
-.dragon-actions { display: flex; gap: 20px; justify-content: center; margin-top: 50px; }
-.act-btn.safe { background: #3498db; } .act-btn.risk { background: #9b59b6; }
+/* OVERLAYS */
+.win-overlay, .lose-overlay { position: absolute; font-size: 40px; font-weight: 900; text-shadow: 0 5px 20px black; animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+.win-overlay { color: #00e701; }
+.lose-overlay { color: #ff4d4d; }
+
+/* LOGIN */
+.login-screen { width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; background: #0f1923; }
+.login-box { text-align: center; background: #1a242d; padding: 40px; border-radius: 12px; border: 1px solid #2f3b46; }
+.gold { color: #00e701; }
+
+@media (max-width: 800px) {
+    .app-layout { flex-direction: column; }
+    .sidebar { width: 100%; flex-direction: row; height: 60px; align-items: center; padding: 10px; overflow-x: auto; }
+    .nav-item { padding: 8px; font-size: 12px; white-space: nowrap; }
+    .game-wrapper { flex-direction: column; height: auto; }
+    .game-board { height: 400px; }
+}
+
+@keyframes popIn { from { transform: scale(0); } to { transform: scale(1); } }

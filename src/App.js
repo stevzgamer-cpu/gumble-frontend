@@ -20,6 +20,9 @@ function App() {
   const [currentTable, setCurrentTable] = useState(null);
   const [gameState, setGameState] = useState(null);
   const [timer, setTimer] = useState(30);
+  
+  // Controls
+  const [buyInAmount, setBuyInAmount] = useState(100);
   const [raiseAmount, setRaiseAmount] = useState(0);
 
   const handleAuth = async (e) => {
@@ -61,7 +64,11 @@ function App() {
   }, [currentTable]);
 
   const joinTable = (tableId) => {
-      socket.emit('joinTable', { tableId, userId: user._id, buyIn: 100 });
+      if (buyInAmount < 10 || buyInAmount > user.balance) {
+          alert("Invalid Buy-In Amount");
+          return;
+      }
+      socket.emit('joinTable', { tableId, userId: user._id, buyIn: buyInAmount });
       setCurrentTable(tableId);
   };
 
@@ -89,11 +96,18 @@ function App() {
 
   if (!currentTable) return (
       <div className="lobby-screen">
-          <div className="lobby-header"><h1>LOBBY</h1></div>
+          <div className="lobby-header"><h1>LOBBY</h1><div className="balance-badge">${user.balance}</div></div>
           <div className="table-grid">
               {tables.map(t => (
                   <div key={t.id} className="table-card">
-                      <h3>{t.name}</h3><p>{t.players} Players</p>
+                      <h3>{t.name}</h3>
+                      <p>{t.players} Players</p>
+                      
+                      <div className="buyin-control">
+                          <label>Buy In: ${buyInAmount}</label>
+                          <input type="range" min="10" max={user.balance} value={buyInAmount} onChange={e=>setBuyInAmount(Number(e.target.value))} />
+                      </div>
+                      
                       <button className="gold-btn" onClick={() => joinTable(t.id)}>JOIN</button>
                   </div>
               ))}
@@ -117,21 +131,30 @@ function App() {
                 </div>
                 {gameState.phase === 'showdown' && <div className="winner-msg">WINNER: {gameState.winners.join(", ")}</div>}
             </div>
+            
             {gameState.players.map((p, i) => {
                 const isTurn = gameState.players[gameState.turnIndex]?.id === p.id;
                 const timerWidth = isTurn ? `${(timer / 30) * 100}%` : '0%';
+                
+                // FORCE CARD VISIBILITY: Only hide if NOT me AND NOT showdown
                 const showCards = p.name === user.username || gameState.phase === 'showdown';
+
                 return (
                     <div key={i} className={`seat seat-${i} ${isTurn ? 'active-turn' : ''} ${p.folded ? 'folded' : ''}`}>
                          {isTurn && <div className="timer-bar" style={{width: timerWidth}}></div>}
                          <div className="avatar">{p.name[0]}</div>
                          <div className="p-info"><div>{p.name}</div><div className="p-bal">${p.balance}</div></div>
-                         <div className="hand">{p.hand.map((c, j) => <img key={j} src={getCardSrc(showCards ? c : 'XX')} className="real-card small" alt="card" />)}</div>
+                         <div className="hand">
+                             {p.hand.map((c, j) => (
+                                <img key={j} src={getCardSrc(showCards ? c : 'XX')} className="real-card small" alt="card" />
+                             ))}
+                         </div>
                          {p.currentBet > 0 && <div className="bet-bubble">${p.currentBet}</div>}
                     </div>
                 );
             })}
         </div>
+        
         <div className={`controls-dock ${!isMyTurn ? 'disabled' : ''}`}>
             <div className="slider-box">
                 <input type="range" min={gameState.highestBet + 10} max={myPlayer?.balance} value={raiseAmount} onChange={(e)=>setRaiseAmount(Number(e.target.value))} />
@@ -139,7 +162,9 @@ function App() {
             </div>
             <div className="action-btns">
                 <button className="act-btn fold" onClick={()=>sendAction('fold')}>FOLD</button>
-                <button className="act-btn check" onClick={()=>sendAction(toCall === 0 ? 'call' : 'call')}>{toCall === 0 ? "CHECK" : `CALL $${toCall}`}</button>
+                <button className="act-btn check" onClick={()=>sendAction(toCall === 0 ? 'check' : 'call')}>
+                    {toCall === 0 ? "CHECK" : `CALL $${toCall}`}
+                </button>
                 <button className="act-btn raise" onClick={()=>sendAction('raise')}>RAISE</button>
             </div>
         </div>

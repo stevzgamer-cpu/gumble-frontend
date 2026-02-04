@@ -1,85 +1,55 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './App.css';
 import { io } from "socket.io-client";
 import axios from 'axios';
 
-// --- NETWORK CONFIGURATION ---
-// Automatically switches API based on where the site is running
+// AUTO-DETECT BACKEND URL
 const IS_LOCAL = window.location.hostname === 'localhost';
-const BACKEND_URL = IS_LOCAL 
-  ? 'http://localhost:5000' 
-  : 'https://gumble-backend.onrender.com'; // <--- VERIFY THIS MATCHES YOUR RENDER BACKEND NAME
+const BACKEND = IS_LOCAL ? 'http://localhost:5000' : 'https://gumble-backend.onrender.com';
+const API = `${BACKEND}/api`;
+const socket = io(BACKEND);
 
-const API = `${BACKEND_URL}/api`;
-const socket = io(BACKEND_URL);
-
-// --- COMPONENTS ---
-
-const MinesGame = ({ user, setNotification }) => {
+// --- COMPONENT: MINES ---
+const Mines = ({ user, setNotify }) => {
     const [bet, setBet] = useState(10);
     const [mines, setMines] = useState(3);
     const [active, setActive] = useState(false);
-    const [grid, setGrid] = useState([]); // The hidden server grid
+    const [grid, setGrid] = useState([]); 
     const [revealed, setRevealed] = useState(Array(25).fill(false));
-    const [currentMult, setCurrentMult] = useState(1.0);
-    
-    const startGame = async () => {
+    const [mult, setMult] = useState(1.0);
+
+    const play = async () => {
         try {
             const res = await axios.post(`${API}/mines/play`, { userId: user._id, bet, minesCount: mines });
-            setGrid(res.data.grid);
-            setActive(true);
-            setRevealed(Array(25).fill(false));
-            setCurrentMult(1.0);
-        } catch (e) { alert("Error starting game"); }
+            setGrid(res.data.grid); setActive(true); setRevealed(Array(25).fill(false)); setMult(1.0);
+        } catch(e) { alert("Funds!"); }
     };
 
-    const handleTile = async (idx) => {
-        if(!active || revealed[idx]) return;
-        
-        const newRev = [...revealed];
-        newRev[idx] = true;
-        setRevealed(newRev);
-
-        if(grid[idx] === 1) {
-            // LOSS
-            setActive(false);
-            setNotification({ type: 'LOSS', msg: 'MINE DETONATED' });
-        } else {
-            // WIN STEP
-            const nextMult = currentMult * 1.15; // Simplified math
-            setCurrentMult(nextMult);
-        }
+    const click = (i) => {
+        if(!active || revealed[i]) return;
+        const rev = [...revealed]; rev[i] = true; setRevealed(rev);
+        if(grid[i]===1) { setActive(false); setNotify({t:'LOSE', m:'BOOM!'}); }
+        else { setMult(mult * 1.15); }
     };
 
     const cashout = async () => {
-        const win = bet * currentMult;
+        const win = bet * mult;
         await axios.post(`${API}/mines/cashout`, { userId: user._id, winAmount: win });
-        setActive(false);
-        setNotification({ type: 'WIN', msg: `+$${win.toFixed(2)}` });
+        setActive(false); setNotify({t:'WIN', m:`+ $${win.toFixed(2)}`});
     };
 
     return (
         <div className="game-wrapper">
-            <div className="game-controls">
-                <div className="input-box">
-                    <label>BET</label>
-                    <input type="number" value={bet} onChange={e=>setBet(Number(e.target.value))} />
-                </div>
-                <div className="input-box">
-                    <label>MINES</label>
-                    <input type="number" value={mines} onChange={e=>setMines(Number(e.target.value))} />
-                </div>
-                {!active ? 
-                    <button className="action-btn gold" onClick={startGame}>PLAY</button> :
-                    <button className="action-btn green" onClick={cashout}>CASHOUT ${(bet*currentMult).toFixed(2)}</button>
-                }
+            <div className="controls">
+                <input type="number" value={bet} onChange={e=>setBet(Number(e.target.value))} />
+                <button className="btn-gold" onClick={!active ? play : cashout}>
+                    {!active ? 'BET' : `CASHOUT $${(bet*mult).toFixed(2)}`}
+                </button>
             </div>
-            <div className="mines-board">
-                {Array(25).fill(0).map((_, i) => (
-                    <div key={i} 
-                         className={`tile ${revealed[i] ? (grid[i]===1 ? 'bomb' : 'gem') : ''}`}
-                         onClick={() => handleTile(i)}>
-                         {revealed[i] && (grid[i]===1 ? '💣' : '💎')}
+            <div className="grid-5x5">
+                {Array(25).fill(0).map((_,i) => (
+                    <div key={i} className={`tile ${revealed[i] ? (grid[i]===1?'bomb':'gem'):''}`} onClick={()=>click(i)}>
+                        {revealed[i] ? (grid[i]===1?'💥':'💎') : ''}
                     </div>
                 ))}
             </div>
@@ -87,86 +57,178 @@ const MinesGame = ({ user, setNotification }) => {
     );
 };
 
-const BlackjackGame = ({ user, setNotification }) => {
+// --- COMPONENT: BLACKJACK ---
+const Blackjack = ({ user, setNotify }) => {
     const [bet, setBet] = useState(20);
-    const [pHand, setPHand] = useState([]);
-    const [dHand, setDHand] = useState([]);
+    const [ph, setPh] = useState([]);
+    const [dh, setDh] = useState([]);
     const [status, setStatus] = useState('idle');
 
-    const getScore = (hand) => {
-        let sc = 0; let ace = 0;
-        hand.forEach(c => { sc += c.value; if(c.value===11) ace++; });
-        while(sc > 21 && ace > 0) { sc-=10; ace--; }
-        return sc;
+    const score = (h) => {
+        let s=0, a=0; h.forEach(c=>{s+=c.value; if(c.value===11)a++});
+        while(s>21 && a>0){s-=10;a--} return s;
     };
 
     const deal = async () => {
-        const res = await axios.post(`${API}/blackjack/deal`, { userId: user._id, bet });
-        setPHand(res.data.playerHand);
-        setDHand(res.data.dealerHand);
-        setStatus('playing');
+        const res = await axios.post(`${API}/blackjack/deal`, {userId: user._id, bet});
+        setPh(res.data.playerHand); setDh(res.data.dealerHand); setStatus('play');
     };
 
-    // Simplified Hit Logic (Frontend simulation for speed, Production should verify on backend)
-    const hit = () => {
-        const newCard = { code: 'XH', value: Math.floor(Math.random()*10)+1, image: 'https://deckofcardsapi.com/static/img/0H.png' }; 
-        // Note: For real production, call API /blackjack/hit
-        const newHand = [...pHand, newCard];
-        setPHand(newHand);
-        if(getScore(newHand) > 21) {
-             setStatus('bust');
-             setNotification({ type: 'LOSS', msg: 'BUST' });
-        }
+    const hit = async () => {
+        const res = await axios.post(`${API}/blackjack/hit`, {});
+        const nh = [...ph, res.data.card]; setPh(nh);
+        if(score(nh)>21) { setStatus('bust'); setNotify({t:'LOSE', m:'BUST'}); }
     };
 
     const stand = async () => {
-        let dScore = getScore(dHand);
-        // Quick visual simulation of dealer drawing
-        while(dScore < 17) dScore += Math.floor(Math.random()*10)+1; 
-        
-        const pScore = getScore(pHand);
-        let result = 'LOSE';
-        let mult = 0;
-
-        if (dScore > 21 || pScore > dScore) { result='WIN'; mult=2; }
-        else if (pScore === dScore) { result='PUSH'; mult=1; }
-
-        if(mult > 0) {
-            await axios.post(`${API}/blackjack/payout`, { userId: user._id, bet, multiplier: mult });
-            setNotification({ type: result, msg: result });
-        } else {
-            setNotification({ type: 'LOSS', msg: 'DEALER WINS' });
+        let d = [...dh];
+        // Simulate dealer draw (simplified frontend visual)
+        while(score(d)<17) {
+             // In full prod, fetch from server. Here we assume success for UI speed
+             d.push({code:'X', value:5, image:'https://deckofcardsapi.com/static/img/5D.png'}); 
         }
+        setDh(d);
+        const ps=score(ph), ds=score(d);
+        let win=0;
+        if(ds>21 || ps>ds) win=bet*2;
+        else if(ps===ds) win=bet;
+        
+        if(win>0) {
+            await axios.post(`${API}/blackjack/payout`, {userId:user._id, amount:win});
+            setNotify({t:'WIN', m:`+ $${win}`});
+        } else setNotify({t:'LOSE', m:'DEALER WINS'});
         setStatus('idle');
     };
 
     return (
-        <div className="game-wrapper">
-            <div className="bj-board">
-                <div className="hand dealer">
-                   <h3>DEALER</h3>
-                   <div className="cards">
-                       {dHand.map((c, i) => (
-                           <img key={i} src={(i===1 && status==='playing') ? 'https://deckofcardsapi.com/static/img/back.png' : c.image} className="card-img" alt="card" />
-                       ))}
-                   </div>
-                </div>
-                <div className="hand player">
-                   <h3>YOU ({getScore(pHand)})</h3>
-                   <div className="cards">
-                       {pHand.map((c, i) => <img key={i} src={c.image} className="card-img" alt="card" />)}
-                   </div>
-                </div>
+        <div className="game-wrapper bj-layout">
+            <div className="hand">
+                <h3>DEALER ({status==='play'?'?':score(dh)})</h3>
+                <div className="cards">{dh.map((c,i)=><img key={i} src={(i===1&&status==='play')?'https://deckofcardsapi.com/static/img/back.png':c.image} className="card"/>)}</div>
             </div>
-            <div className="game-controls">
-                {status === 'idle' || status === 'bust' ? (
-                     <button className="action-btn gold" onClick={deal}>DEAL (${bet})</button>
-                ) : (
-                    <>
-                        <button className="action-btn" onClick={hit}>HIT</button>
-                        <button className="action-btn gold" onClick={stand}>STAND</button>
-                    </>
-                )}
+            <div className="hand">
+                <h3>YOU ({score(ph)})</h3>
+                <div className="cards">{ph.map((c,i)=><img key={i} src={c.image} className="card"/>)}</div>
+            </div>
+            <div className="controls">
+                {status==='idle'||status==='bust' ? 
+                    <button className="btn-gold" onClick={deal}>DEAL ${bet}</button> : 
+                    <><button className="btn" onClick={hit}>HIT</button><button className="btn-gold" onClick={stand}>STAND</button></>
+                }
+            </div>
+        </div>
+    );
+};
+
+// --- COMPONENT: DRAGON TOWER ---
+const DragonTower = ({ user, setNotify }) => {
+    const [bet, setBet] = useState(10);
+    const [active, setActive] = useState(false);
+    const [rows, setRows] = useState([]); // Server truth
+    const [currentRow, setCurrentRow] = useState(0);
+    const [history, setHistory] = useState(Array(9).fill(null)); // UI State
+    const [diff, setDiff] = useState('MEDIUM');
+
+    const play = async () => {
+        const res = await axios.post(`${API}/dragon/play`, { userId: user._id, bet, difficulty: diff });
+        setRows(res.data.rows); setActive(true); setCurrentRow(0); setHistory(Array(9).fill(null));
+    };
+
+    const select = (colIndex) => {
+        if(!active) return;
+        const isDragon = rows[currentRow][colIndex] === 1;
+        const newHist = [...history];
+        newHist[currentRow] = isDragon ? '💥' : '🥚'; // Egg = Safe
+        setHistory(newHist);
+
+        if(isDragon) {
+            setActive(false); setNotify({t:'LOSE', m:'DRAGON ATE YOU'});
+        } else {
+            if(currentRow === 8) {
+                // Top reached
+                cashout(true);
+            } else {
+                setCurrentRow(currentRow + 1);
+            }
+        }
+    };
+
+    const cashout = async (top=false) => {
+        let multi = 1 + (currentRow * 0.5); // Simple mult math
+        if(top) multi = 10;
+        const win = bet * multi;
+        await axios.post(`${API}/dragon/cashout`, { userId: user._id, amount: win });
+        setActive(false); setNotify({t:'WIN', m:`+ $${win.toFixed(2)}`});
+    };
+
+    return (
+        <div className="game-wrapper tower-layout">
+            <div className="tower-grid">
+                {[...Array(9)].map((_, rIdx) => {
+                    const actualRow = 8 - rIdx; // Render bottom (0) to top (8)
+                    return (
+                        <div key={actualRow} className={`tower-row ${actualRow===currentRow ? 'active-row':''}`}>
+                            {[0,1,2].map(c => (
+                                <div key={c} className="tower-cell" onClick={()=>actualRow===currentRow && select(c)}>
+                                    {history[actualRow] !== null && currentRow > actualRow ? '🥚' : ''}
+                                    {history[actualRow] !== null && currentRow === actualRow && history[actualRow]}
+                                </div>
+                            ))}
+                        </div>
+                    )
+                })}
+            </div>
+            <div className="controls">
+                <select value={diff} onChange={e=>setDiff(e.target.value)} disabled={active}>
+                    <option>EASY</option><option>MEDIUM</option><option>HARD</option>
+                </select>
+                <input type="number" value={bet} onChange={e=>setBet(Number(e.target.value))} />
+                <button className="btn-gold" onClick={!active ? play : ()=>cashout(false)}>
+                    {!active ? 'CLIMB' : 'CASHOUT'}
+                </button>
+            </div>
+        </div>
+    );
+};
+
+// --- COMPONENT: KENO ---
+const Keno = ({ user, setNotify }) => {
+    const [bet, setBet] = useState(10);
+    const [picks, setPicks] = useState([]);
+    const [drawn, setDrawn] = useState([]);
+    
+    const toggle = (n) => {
+        if(picks.includes(n)) setPicks(picks.filter(x=>x!==n));
+        else if(picks.length < 10) setPicks([...picks, n]);
+    };
+
+    const play = async () => {
+        if(picks.length === 0) return;
+        const res = await axios.post(`${API}/keno/play`, { userId: user._id, bet, picks });
+        setDrawn(res.data.drawn);
+        if(res.data.win > 0) setNotify({t:'WIN', m:`+ $${res.data.win.toFixed(2)}`});
+        else setNotify({t:'LOSE', m:'NO MATCH'});
+    };
+
+    return (
+        <div className="game-wrapper keno-layout">
+            <div className="keno-grid">
+                {[...Array(40)].map((_,i) => {
+                    const n = i+1;
+                    const isPick = picks.includes(n);
+                    const isHit = drawn.includes(n);
+                    return (
+                        <div key={n} 
+                             className={`keno-ball ${isPick?'pick':''} ${isHit?'hit':''}`}
+                             onClick={()=>toggle(n)}>
+                             {n}
+                        </div>
+                    )
+                })}
+            </div>
+            <div className="controls">
+                <input type="number" value={bet} onChange={e=>setBet(Number(e.target.value))} />
+                <button className="btn-gold" onClick={play}>DRAW</button>
             </div>
         </div>
     );
@@ -175,96 +237,72 @@ const BlackjackGame = ({ user, setNotification }) => {
 // --- MAIN APP ---
 function App() {
   const [user, setUser] = useState(null);
-  const [activeGame, setActiveGame] = useState('MINES');
+  const [page, setPage] = useState('MINES');
   const [notify, setNotify] = useState(null);
 
-  // Auth Handler
   const handleLogin = (response) => {
     axios.post(`${API}/auth/google`, { token: response.credential })
          .then(res => setUser(res.data))
-         .catch(err => alert("Login Failed"));
+         .catch(()=> alert("Login Error"));
   };
 
   useEffect(() => {
-    /* global google */
-    if (window.google) {
-      google.accounts.id.initialize({
-        client_id: "67123336647-b00rcsb6ni8s8unhi3qqg0bk6l2es62l.apps.googleusercontent.com",
-        callback: handleLogin
-      });
-      google.accounts.id.renderButton(
-        document.getElementById("gBtn"), { theme: "filled_black", size: "large", width: 250 }
-      );
-    }
+    // RETRY LOGIC FOR GOOGLE BUTTON
+    const initGoogle = () => {
+        if (window.google) {
+            window.google.accounts.id.initialize({
+                client_id: "67123336647-b00rcsb6ni8s8unhi3qqg0bk6l2es62l.apps.googleusercontent.com",
+                callback: handleLogin
+            });
+            const btn = document.getElementById("gBtn");
+            if(btn) window.google.accounts.id.renderButton(btn, { theme: "filled_black", size: "large", width: 250 });
+        } else {
+            setTimeout(initGoogle, 500); // Try again in 500ms if script not loaded
+        }
+    };
+    initGoogle();
     
-    socket.on('balanceUpdate', (data) => {
-        if(user && data.userId === user._id) setUser({...user, balance: data.balance});
+    socket.on('balanceUpdate', (d) => {
+        if(user && d.userId===user._id) setUser({...user, balance: d.balance});
     });
   }, [user]);
 
-  // Notification Timer
-  useEffect(() => {
-      if(notify) {
-          const timer = setTimeout(() => setNotify(null), 3000);
-          return () => clearTimeout(timer);
-      }
-  }, [notify]);
+  useEffect(()=>{ if(notify) setTimeout(()=>setNotify(null), 3000); },[notify]);
 
   return (
-    <div className="app-container">
-      {/* SIDEBAR */}
+    <div className="app">
       <nav className="sidebar">
-        <h1 className="logo">GUMBLE<span className="text-gold">VIP</span></h1>
-        
-        <div className="nav-links">
-            {['MINES', 'BLACKJACK', 'DRAGON', 'KENO'].map(g => (
-                <button key={g} 
-                        className={`nav-btn ${activeGame===g ? 'active' : ''}`}
-                        onClick={() => setActiveGame(g)}>{g}</button>
-            ))}
-        </div>
-
-        {user && (
-            <div className="wallet-box">
-                <p>BALANCE</p>
-                <h2 className="text-gold">${user.balance.toFixed(2)}</h2>
-            </div>
-        )}
+        <h1 className="logo">GUMBLE<span className="gold">VIP</span></h1>
+        {['MINES', 'BLACKJACK', 'DRAGON', 'KENO'].map(g => (
+            <button key={g} className={`nav-item ${page===g?'active':''}`} onClick={()=>setPage(g)}>{g}</button>
+        ))}
+        {user && <div className="balance-box">BALANCE <br/><span className="gold">${user.balance.toFixed(2)}</span></div>}
       </nav>
 
-      {/* MAIN STAGE */}
       <main className="stage">
           {!user ? (
-              <div className="login-modal">
-                  <h1>VIP ACCESS ONLY</h1>
-                  <div id="gBtn"></div>
+              <div className="login-container">
+                  <h1 className="gold">VIP ACCESS ONLY</h1>
+                  <p>Secure connection required.</p>
+                  <div id="gBtn" style={{marginTop: '20px'}}></div> 
               </div>
           ) : (
               <>
-                <header className="top-hud">
-                    <h2>{activeGame}</h2>
-                    <div className="user-badge">{user.name}</div>
+                <header className="header">
+                    <h2>{page}</h2>
+                    <div>{user.name}</div>
                 </header>
-                
                 <div className="game-area">
-                    {activeGame === 'MINES' && <MinesGame user={user} setNotification={setNotify} />}
-                    {activeGame === 'BLACKJACK' && <BlackjackGame user={user} setNotification={setNotify} />}
-                    {activeGame === 'DRAGON' && <div className="coming-soon">DRAGON TOWER LOADING...</div>}
-                    {activeGame === 'KENO' && <div className="coming-soon">KENO LOADING...</div>}
+                    {page === 'MINES' && <Mines user={user} setNotify={setNotify} />}
+                    {page === 'BLACKJACK' && <Blackjack user={user} setNotify={setNotify} />}
+                    {page === 'DRAGON' && <DragonTower user={user} setNotify={setNotify} />}
+                    {page === 'KENO' && <Keno user={user} setNotify={setNotify} />}
                 </div>
               </>
           )}
       </main>
 
-      {/* NOTIFICATION POPUP */}
-      {notify && (
-          <div className="notify-overlay">
-              <div className="notify-box">
-                  <h1 className={notify.type === 'WIN' ? 'text-gold' : 'text-red'}>{notify.type}</h1>
-                  <p>{notify.msg}</p>
-              </div>
-          </div>
-      )}
+      {notify && <div className="notify"><h1 className="gold">{notify.t}</h1><p>{notify.m}</p></div>}
     </div>
   );
 }

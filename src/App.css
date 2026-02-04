@@ -1,12 +1,10 @@
 body { background: #050505; color: white; margin: 0; font-family: 'Arial', sans-serif; overflow: hidden; }
 
-/* SHARED */
 .gold-btn { width: 100%; padding: 12px; background: #d4af37; border: none; font-weight: bold; cursor: pointer; border-radius: 4px; color: black; }
 .red-btn { width: 100%; padding: 12px; background: #c0392b; border: none; font-weight: bold; cursor: pointer; border-radius: 4px; color: white; }
 
 /* LOBBY */
 .login-screen, .lobby-screen { height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; background: #111; }
-.login-box { background: #000; padding: 40px; border: 1px solid #333; border-radius: 10px; text-align: center; }
 .table-grid { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
 .table-card { background: #1a1a1a; padding: 20px; border-radius: 10px; border: 1px solid #333; width: 200px; text-align: center; }
 
@@ -16,46 +14,29 @@ body { background: #050505; color: white; margin: 0; font-family: 'Arial', sans-
 
 /* TABLE */
 .game-screen { height: 100vh; width: 100vw; background: #080808; display: flex; justify-content: center; align-items: center; }
-.poker-table { 
-    width: 900px; height: 450px; 
-    background: radial-gradient(circle, #0e4d26 0%, #021a0a 100%);
-    border: 15px solid #3e2723; border-radius: 250px; position: relative; 
-}
+.poker-table { width: 900px; height: 450px; background: radial-gradient(circle, #0e4d26 0%, #021a0a 100%); border: 15px solid #3e2723; border-radius: 250px; position: relative; }
 
-/* CARDS - LARGE FOR MOBILE */
-.real-card { width: 55px; height: 80px; margin: 2px; border-radius: 4px; }
+/* CARDS */
+.real-card { width: 55px; height: 80px; margin: 2px; }
 .real-card.small { width: 45px; height: 65px; }
 
 /* SEATS */
 .seat { position: absolute; width: 100px; text-align: center; }
-.seat.folded { opacity: 0.4; filter: grayscale(100%); }
 .seat-0 { bottom: -60px; left: 50%; transform: translateX(-50%); } 
 .seat-1 { top: -60px; left: 50%; transform: translateX(-50%); } 
 .seat-2 { top: 50%; left: -60px; transform: translateY(-50%); } 
 .seat-3 { top: 50%; right: -60px; transform: translateY(-50%); } 
 
-.active-turn .avatar { border: 3px solid #00ff00; box-shadow: 0 0 10px #00ff00; }
-.avatar { width: 45px; height: 45px; background: #222; border: 2px solid #d4af37; border-radius: 50%; margin: 0 auto; color: #d4af37; line-height: 45px; font-weight: bold; }
+.avatar { width: 45px; height: 45px; background: #222; border: 2px solid #d4af37; border-radius: 50%; margin: 0 auto; line-height: 45px; font-weight: bold; }
 .p-info { background: rgba(0,0,0,0.9); padding: 2px; border-radius: 4px; font-size: 11px; margin-top: -5px; position: relative; z-index: 5; }
 
-/* CENTER */
-.table-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; width: 100%; }
-.pot-pill { background: #000; padding: 4px 15px; border-radius: 20px; border: 1px solid #d4af37; font-weight: bold; display: inline-block; margin-bottom: 10px; font-size: 14px; }
-
 /* CONTROLS */
-.controls-dock { 
-    position: absolute; bottom: 0; width: 100%; background: #111; padding: 10px; 
-    display: flex; justify-content: center; gap: 10px; border-top: 1px solid #333;
-}
-.controls-dock.disabled { opacity: 0.3; pointer-events: none; }
-.act-btn { padding: 12px 20px; font-weight: bold; border: none; border-radius: 5px; color: white; cursor: pointer; }
+.controls-dock { position: absolute; bottom: 0; width: 100%; background: #111; padding: 10px; display: flex; justify-content: center; gap: 10px; }
+.act-btn { padding: 12px 20px; font-weight: bold; border-radius: 5px; color: white; cursor: pointer; border: none; }
 .fold { background: #c0392b; } .check { background: #2980b9; } .raise { background: #27ae60; }
 
-/* MOBILE ADJUSTMENTS */
 @media (max-width: 768px) {
     .poker-table { width: 95vw; height: 130vw; border-radius: 100px; }
-    .seat-0 { bottom: 10px; } .seat-1 { top: 10px; }
     .real-card { width: 14vw; height: 20vw; }
     .real-card.small { width: 16vw; height: 24vw; }
-    .avatar { width: 12vw; height: 12vw; line-height: 12vw; }
 }

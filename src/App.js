@@ -4,7 +4,8 @@ import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
 import './App.css';
 
 const socket = io("https://gumble-backend.onrender.com");
-const CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID_HERE"; // PASTE IT HERE TOO
+// --- ⚠️ PASTE YOUR GOOGLE CLIENT ID HERE ---
+const CLIENT_ID = "67123336647-b00rcsb6ni8s8unhi3qqg0bk6l2es62l.apps.googleusercontent.com"; 
 
 const getCardSrc = (code) => {
     if (!code || code === 'XX' || code.length < 2) return "https://www.deckofcardsapi.com/static/img/back.png";
@@ -19,34 +20,29 @@ function App() {
   const [currentTable, setCurrentTable] = useState(null);
   const [gameState, setGameState] = useState(null);
   const [timer, setTimer] = useState(30);
-  const [buyIn, setBuyIn] = useState(100);
   const [raiseAmount, setRaiseAmount] = useState(0);
-  const [isRegistering, setIsRegistering] = useState(false);
 
   const handleAuth = async (e) => {
     e.preventDefault();
-    const endpoint = isRegistering ? 'register' : 'login';
     try {
-        const res = await fetch(`https://gumble-backend.onrender.com/api/${endpoint}`, {
+        const res = await fetch(`https://gumble-backend.onrender.com/api/login`, {
             method: 'POST', headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({username: e.target.username.value, password: e.target.password.value})
         });
         const data = await res.json();
-        if (res.ok) setUser(data);
-        else alert(data.error);
+        if (res.ok) setUser(data); else alert(data.error);
     } catch(err) { alert("Server Offline"); }
   };
 
-  const handleGoogleSuccess = async (credentialResponse) => {
+  const handleGoogleSuccess = async (res) => {
       try {
-          const res = await fetch(`https://gumble-backend.onrender.com/api/google-login`, {
+          const apiRes = await fetch(`https://gumble-backend.onrender.com/api/google-login`, {
               method: 'POST', headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({ token: credentialResponse.credential })
+              body: JSON.stringify({ token: res.credential })
           });
-          const data = await res.json();
-          if (res.ok) setUser(data);
-          else alert("Google Login Failed - Check Console");
-      } catch (err) { alert("Server Error"); }
+          const data = await apiRes.json();
+          if (apiRes.ok) setUser(data);
+      } catch (err) { alert("Login Error"); }
   };
 
   useEffect(() => {
@@ -55,29 +51,22 @@ function App() {
         setGameState(data);
         if(data) {
             setTimer(data.timer);
-            setRaiseAmount(data.highestBet + (data.bigBlind || 20));
+            setRaiseAmount(data.highestBet + 20);
         }
     });
-    socket.on('timerUpdate', (t) => setTimer(t));
-    const interval = setInterval(() => { if(!currentTable) socket.emit('getTables'); }, 5000);
+    socket.on('timerUpdate', setTimer);
+    const i = setInterval(() => { if(!currentTable) socket.emit('getTables'); }, 5000);
     socket.emit('getTables');
-    return () => { socket.off('gameState'); clearInterval(interval); };
+    return () => { socket.off('gameState'); clearInterval(i); };
   }, [currentTable]);
 
   const joinTable = (tableId) => {
-      socket.emit('joinTable', { tableId, userId: user._id, buyIn });
+      socket.emit('joinTable', { tableId, userId: user._id, buyIn: 100 });
       setCurrentTable(tableId);
   };
 
-  const leaveTable = () => {
-      socket.emit('leaveTable', { tableId: currentTable });
-      setCurrentTable(null);
-      setGameState(null);
-      socket.emit('getTables');
-  };
-
-  const sendAction = (type, amount = 0) => {
-      socket.emit('action', { tableId: currentTable, type, amount });
+  const sendAction = (type) => {
+      socket.emit('action', { tableId: currentTable, type, amount: raiseAmount });
   };
 
   if (!user) return (
@@ -86,44 +75,40 @@ function App() {
               <h1 className="logo">GUMBLE<span className="gold">STAKE</span></h1>
               <div className="google-wrapper">
                   <GoogleOAuthProvider clientId={CLIENT_ID}>
-                      <GoogleLogin onSuccess={handleGoogleSuccess} onError={() => console.log('Login Failed')} theme="filled_black" shape="pill" />
+                      <GoogleLogin onSuccess={handleGoogleSuccess} theme="filled_black" shape="pill" />
                   </GoogleOAuthProvider>
               </div>
-              <div className="divider">OR</div>
               <form onSubmit={handleAuth}>
-                  <input className="lux-input" name="username" placeholder="Username" />
-                  <input className="lux-input" name="password" type="password" placeholder="Password" />
-                  <button className="gold-btn">{isRegistering ? "REGISTER" : "LOGIN"}</button>
+                  <input className="lux-input" name="username" placeholder="User" />
+                  <input className="lux-input" name="password" type="password" placeholder="Pass" />
+                  <button className="gold-btn">LOGIN</button>
               </form>
-              <p className="toggle" onClick={()=>setIsRegistering(!isRegistering)}>{isRegistering ? "Back to Login" : "Create Account"}</p>
           </div>
       </div>
   );
 
   if (!currentTable) return (
       <div className="lobby-screen">
-          <div className="lobby-header"><h1>LOBBY</h1><div className="balance-badge">Wallet: ${user.balance}</div></div>
+          <div className="lobby-header"><h1>LOBBY</h1></div>
           <div className="table-grid">
               {tables.map(t => (
                   <div key={t.id} className="table-card">
-                      <h3>{t.name}</h3>
-                      <p>{t.players} Players</p>
-                      <button className="gold-btn" onClick={() => joinTable(t.id)}>JOIN TABLE</button>
+                      <h3>{t.name}</h3><p>{t.players} Players</p>
+                      <button className="gold-btn" onClick={() => joinTable(t.id)}>JOIN</button>
                   </div>
               ))}
           </div>
       </div>
   );
 
-  if (!gameState) return <div className="loading">Loading Table...</div>;
+  if (!gameState) return <div className="loading">Loading...</div>;
+  
   const myPlayer = gameState.players.find(p => p.name === user.username);
   const isMyTurn = gameState.players[gameState.turnIndex]?.id === socket.id;
-  const currentBet = myPlayer?.currentBet || 0;
-  const toCall = gameState.highestBet - currentBet;
+  const toCall = gameState.highestBet - (myPlayer?.currentBet || 0);
 
   return (
     <div className="game-screen">
-        <button className="leave-btn" onClick={leaveTable}>EXIT</button>
         <div className="poker-table">
             <div className="table-center">
                 <div className="pot-pill">POT: ${gameState.pot}</div>
@@ -135,12 +120,13 @@ function App() {
             {gameState.players.map((p, i) => {
                 const isTurn = gameState.players[gameState.turnIndex]?.id === p.id;
                 const timerWidth = isTurn ? `${(timer / 30) * 100}%` : '0%';
+                const showCards = p.name === user.username || gameState.phase === 'showdown';
                 return (
                     <div key={i} className={`seat seat-${i} ${isTurn ? 'active-turn' : ''} ${p.folded ? 'folded' : ''}`}>
                          {isTurn && <div className="timer-bar" style={{width: timerWidth}}></div>}
                          <div className="avatar">{p.name[0]}</div>
                          <div className="p-info"><div>{p.name}</div><div className="p-bal">${p.balance}</div></div>
-                         <div className="hand">{p.hand.map((c, j) => <img key={j} src={getCardSrc((p.name===user.username || gameState.phase==='showdown') ? c : 'XX')} className="real-card small" alt="card" />)}</div>
+                         <div className="hand">{p.hand.map((c, j) => <img key={j} src={getCardSrc(showCards ? c : 'XX')} className="real-card small" alt="card" />)}</div>
                          {p.currentBet > 0 && <div className="bet-bubble">${p.currentBet}</div>}
                     </div>
                 );
@@ -153,8 +139,8 @@ function App() {
             </div>
             <div className="action-btns">
                 <button className="act-btn fold" onClick={()=>sendAction('fold')}>FOLD</button>
-                <button className="act-btn check" onClick={()=>sendAction('call')}>{toCall === 0 ? "CHECK" : `CALL $${toCall}`}</button>
-                <button className="act-btn raise" onClick={()=>sendAction('raise', raiseAmount)}>RAISE</button>
+                <button className="act-btn check" onClick={()=>sendAction(toCall === 0 ? 'call' : 'call')}>{toCall === 0 ? "CHECK" : `CALL $${toCall}`}</button>
+                <button className="act-btn raise" onClick={()=>sendAction('raise')}>RAISE</button>
             </div>
         </div>
     </div>

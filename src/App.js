@@ -5,19 +5,26 @@ import './App.css';
 const API_URL = "https://gumble-backend.onrender.com/api";
 const CLIENT_ID = "67123336647-b00rcsb6ni8s8unhi3qqg0bk6l2es62l.apps.googleusercontent.com"; 
 
+const getCardImg = (code) => {
+    if(code === 'BACK') return "https://www.deckofcardsapi.com/static/img/back.png";
+    return `https://www.deckofcardsapi.com/static/img/${code}.png`;
+};
+
 function App() {
   const [user, setUser] = useState(null);
-  const [activeGame, setActiveGame] = useState('mines'); // mines, bj, dragon
+  const [activeGame, setActiveGame] = useState('menu');
   const [bet, setBet] = useState(10);
-  
-  // Game States
-  const [minesState, setMinesState] = useState({ grid: Array(25).fill(null), status: 'idle', multiplier: 1.0 });
+  const [notification, setNotification] = useState(null); // { msg: "YOU WON $50!", type: "win" }
+
+  // States
   const [bjState, setBjState] = useState(null);
-  const [dragonState, setDragonState] = useState({ row: 0, status: 'idle', multiplier: 1.0 });
-  
-  // Configs
-  const [minesCount, setMinesCount] = useState(3);
+  const [dragonState, setDragonState] = useState({ row: 0, status: 'idle' });
   const [dragonDiff, setDragonDiff] = useState('easy');
+
+  const showNotif = (msg, type) => {
+      setNotification({ msg, type });
+      setTimeout(() => setNotification(null), 3000);
+  };
 
   const refreshUser = async () => { if(user) { const res = await fetch(`${API_URL}/user/${user._id}`); setUser(await res.json()); }};
   const handleLogin = async (c) => { 
@@ -25,66 +32,43 @@ function App() {
       if(res.ok) setUser(await res.json());
   };
 
-  // --- MINES LOGIC ---
-  const startMines = async () => {
-      const res = await fetch(`${API_URL}/mines/start`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({userId:user._id, bet, mines: minesCount}) });
-      setMinesState({ ...await res.json(), grid: Array(25).fill(null) });
-      refreshUser();
-  };
-  const clickMine = async (i) => {
-      if(minesState.status !== 'playing' || minesState.grid[i]) return;
-      const res = await fetch(`${API_URL}/mines/click`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({userId:user._id, tile: i}) });
-      const data = await res.json();
-      const newGrid = [...minesState.grid];
-      if(data.status === 'boom') {
-          data.grid.forEach((type, idx) => newGrid[idx] = type === 'bomb' ? '💣' : '💎');
-          setMinesState({ ...data, grid: newGrid });
-      } else {
-          newGrid[i] = '💎';
-          setMinesState({ ...data, grid: newGrid });
-      }
-  };
-  const cashoutMines = async () => {
-      const res = await fetch(`${API_URL}/mines/cashout`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({userId:user._id}) });
-      const data = await res.json();
-      setMinesState({ ...minesState, status: 'won', winAmount: data.win });
-      refreshUser();
-  };
-
-  // --- BLACKJACK LOGIC ---
+  // --- BLACKJACK ---
   const dealBj = async () => {
       const res = await fetch(`${API_URL}/blackjack/deal`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({userId:user._id, bet}) });
-      setBjState(await res.json());
-      refreshUser();
+      setBjState(await res.json()); refreshUser();
   };
-  const actionBj = async (act) => {
+  const actBj = async (act) => {
       const res = await fetch(`${API_URL}/blackjack/action`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({userId:user._id, action: act}) });
-      setBjState(await res.json());
-      refreshUser();
+      const data = await res.json();
+      setBjState(data); refreshUser();
+      if(data.status === 'won') showNotif(`YOU WON $${(data.bet*2).toFixed(2)}`, 'win');
+      if(data.status === 'bust') showNotif("BUST!", 'lose');
+      if(data.status === 'lost') showNotif("DEALER WINS", 'lose');
+      if(data.status === 'push') showNotif("PUSH - MONEY BACK", 'neutral');
   };
 
-  // --- DRAGON LOGIC ---
+  // --- DRAGON ---
   const startDragon = async () => {
       const res = await fetch(`${API_URL}/dragon/start`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({userId:user._id, bet, difficulty: dragonDiff}) });
-      setDragonState(await res.json());
-      refreshUser();
+      setDragonState(await res.json()); refreshUser();
   };
-  const stepDragon = async (choice) => {
-      const res = await fetch(`${API_URL}/dragon/step`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({userId:user._id, choice}) });
+  const stepDragon = async (c) => {
+      const res = await fetch(`${API_URL}/dragon/step`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({userId:user._id, choice: c}) });
       const data = await res.json();
       setDragonState({ ...dragonState, ...data });
+      if(data.status === 'dead') showNotif("YOU FELL!", 'lose');
   };
-  const cashoutDragon = async () => {
+  const cashDragon = async () => {
       const res = await fetch(`${API_URL}/dragon/cashout`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({userId:user._id}) });
       const data = await res.json();
-      setDragonState({ ...dragonState, status: 'won', winAmount: data.win });
-      refreshUser();
+      setDragonState({ ...dragonState, status: 'won' }); refreshUser();
+      showNotif(`CASHOUT $${data.win.toFixed(2)}`, 'win');
   };
 
   if(!user) return (
       <div className="login-screen">
           <div className="login-box">
-             <h1>GUMBLE<span className="gold">STAKE</span></h1>
+             <h1 className="logo-lg">GUMBLE<span className="gold">VIP</span></h1>
              <GoogleOAuthProvider clientId={CLIENT_ID}><GoogleLogin onSuccess={handleLogin} theme="filled_black" shape="pill" /></GoogleOAuthProvider>
           </div>
       </div>
@@ -92,118 +76,105 @@ function App() {
 
   return (
     <div className="app-layout">
+        {notification && <div className={`notif-overlay ${notification.type}`}>{notification.msg}</div>}
+        
         <div className="sidebar">
             <div className="logo">GUMBLE</div>
-            <div className={`nav-item ${activeGame==='mines'?'active':''}`} onClick={()=>setActiveGame('mines')}>💣 Mines</div>
-            <div className={`nav-item ${activeGame==='bj'?'active':''}`} onClick={()=>setActiveGame('bj')}>♠️ Blackjack</div>
-            <div className={`nav-item ${activeGame==='dragon'?'active':''}`} onClick={()=>setActiveGame('dragon')}>🐉 Dragon</div>
+            <div className="nav-group">
+                <div className={`nav-item ${activeGame==='bj'?'active':''}`} onClick={()=>setActiveGame('bj')}>♠️ Blackjack</div>
+                <div className={`nav-item ${activeGame==='dragon'?'active':''}`} onClick={()=>setActiveGame('dragon')}>🐉 Dragon Tower</div>
+            </div>
             <div className="user-panel">
-                <div className="uname">{user.username}</div>
+                <div className="label">BALANCE</div>
                 <div className="bal">${user.balance.toFixed(2)}</div>
             </div>
         </div>
 
         <div className="main-stage">
-            {/* MINES GAME */}
-            {activeGame === 'mines' && (
-                <div className="game-wrapper">
-                    <div className="game-board">
-                        <div className="mines-grid">
-                            {minesState.grid.map((val, i) => (
-                                <button key={i} 
-                                    className={`tile ${val ? 'revealed' : ''} ${val==='💣'?'boom':''} ${val==='💎'?'gem':''}`} 
-                                    onClick={()=>clickMine(i)}
-                                    disabled={minesState.status !== 'playing' || val}
-                                >
-                                    {val}
-                                </button>
-                            ))}
-                        </div>
-                        {minesState.status === 'won' && <div className="win-overlay">CASHED OUT: ${minesState.winAmount?.toFixed(2)}</div>}
-                        {minesState.status === 'boom' && <div className="lose-overlay">BUSTED!</div>}
+            {activeGame === 'menu' && (
+                <div className="menu-grid">
+                    <div className="game-card" onClick={()=>setActiveGame('bj')}>
+                        <div className="icon">♠️</div>
+                        <h2>Blackjack</h2>
                     </div>
-                    <div className="controls">
-                        <div className="control-group">
-                            <label>Bet Amount</label>
-                            <input type="number" value={bet} onChange={e=>setBet(Number(e.target.value))} />
-                        </div>
-                        <div className="control-group">
-                            <label>Mines</label>
-                            <select value={minesCount} onChange={e=>setMinesCount(Number(e.target.value))}>
-                                <option value="1">1</option><option value="3">3</option><option value="5">5</option><option value="10">10</option>
-                            </select>
-                        </div>
-                        {minesState.status === 'playing' ? (
-                            <button className="action-btn cashout" onClick={cashoutMines}>
-                                CASHOUT ${(bet * minesState.multiplier).toFixed(2)} ({minesState.multiplier.toFixed(2)}x)
-                            </button>
-                        ) : (
-                            <button className="action-btn play" onClick={startMines}>PLAY</button>
-                        )}
+                    <div className="game-card" onClick={()=>setActiveGame('dragon')}>
+                        <div className="icon">🐉</div>
+                        <h2>Dragon Tower</h2>
                     </div>
                 </div>
             )}
 
-            {/* BLACKJACK GAME */}
             {activeGame === 'bj' && (
                 <div className="game-wrapper">
-                    <div className="bj-board">
-                        {bjState?.status === 'playing' || bjState?.status === 'won' || bjState?.status === 'lost' ? (
-                            <>
-                                <div className="hand dealer">
-                                    <h3>Dealer ({bjState.status === 'playing' ? '?' : 'Final'})</h3>
-                                    <div className="cards">{bjState.dHand.map((c,i) => <div key={i} className="card">{c.rank}{c.suit}</div>)}</div>
-                                </div>
-                                <div className="hand player">
-                                    <h3>You</h3>
-                                    <div className="cards">{bjState.pHand.map((c,i) => <div key={i} className="card">{c.rank}{c.suit}</div>)}</div>
-                                </div>
-                                {bjState.status !== 'playing' && <div className="bj-result">{bjState.status.toUpperCase()}</div>}
-                            </>
-                        ) : <div className="placeholder">Place your bet to deal cards</div>}
+                    <div className="game-header">
+                        <h2>BLACKJACK</h2>
+                        <div className="payout-info">Pays 3:2</div>
                     </div>
-                    <div className="controls">
-                        <div className="control-group"><label>Bet</label><input type="number" value={bet} onChange={e=>setBet(Number(e.target.value))} /></div>
+                    <div className="bj-board">
+                        {bjState?.status ? (
+                            <>
+                                <div className="dealer-section">
+                                    <div className="hand-label">DEALER</div>
+                                    <div className="cards-row">
+                                        {bjState.dHand.map((c,i) => <img key={i} src={getCardImg(c.code)} className="real-card" />)}
+                                    </div>
+                                </div>
+                                <div className="player-section">
+                                    <div className="hand-label">YOU</div>
+                                    <div className="cards-row">
+                                        {bjState.pHand.map((c,i) => <img key={i} src={getCardImg(c.code)} className="real-card" />)}
+                                    </div>
+                                </div>
+                            </>
+                        ) : <div className="empty-state">PLACE BET TO START</div>}
+                    </div>
+                    <div className="controls-bar">
+                        <div className="input-group">
+                            <label>BET AMOUNT</label>
+                            <input type="number" value={bet} onChange={e=>setBet(Number(e.target.value))} />
+                        </div>
                         {bjState?.status === 'playing' ? (
-                            <div className="bj-actions">
-                                <button className="action-btn hit" onClick={()=>actionBj('hit')}>HIT</button>
-                                <button className="action-btn stand" onClick={()=>actionBj('stand')}>STAND</button>
+                            <div className="actions-group">
+                                <button className="act-btn hit" onClick={()=>actBj('hit')}>HIT</button>
+                                <button className="act-btn stand" onClick={()=>actBj('stand')}>STAND</button>
+                                {bjState.canDouble && <button className="act-btn double" onClick={()=>actBj('double')}>DOUBLE</button>}
                             </div>
                         ) : (
-                            <button className="action-btn play" onClick={dealBj}>DEAL</button>
+                            <button className="act-btn play" onClick={dealBj}>DEAL</button>
                         )}
                     </div>
                 </div>
             )}
 
-            {/* DRAGON GAME */}
             {activeGame === 'dragon' && (
                 <div className="game-wrapper">
-                    <div className="dragon-tower">
-                         {[...Array(8)].map((_, r) => {
-                             const rowIndex = 7 - r; // Visual render top-down, but logic bottom-up
-                             const isCurrent = dragonState.row === rowIndex;
-                             return (
-                                 <div key={r} className={`tower-row ${isCurrent ? 'active' : ''}`}>
-                                     <button onClick={()=>stepDragon(0)} disabled={!isCurrent}>🧱</button>
-                                     <button onClick={()=>stepDragon(1)} disabled={!isCurrent}>🧱</button>
-                                     <button onClick={()=>stepDragon(2)} disabled={!isCurrent}>🧱</button>
-                                 </div>
-                             )
-                         })}
+                     <div className="game-header">
+                        <h2>DRAGON TOWER</h2>
+                        <div className="payout-info">Climb for Multipliers</div>
                     </div>
-                    <div className="controls">
-                         <div className="control-group"><label>Bet</label><input type="number" value={bet} onChange={e=>setBet(Number(e.target.value))} /></div>
-                         <div className="control-group"><label>Diff</label><select value={dragonDiff} onChange={e=>setDragonDiff(e.target.value)}><option value="easy">Easy</option><option value="hard">Hard</option></select></div>
-                         {dragonState.status === 'playing' ? (
-                            <button className="action-btn cashout" onClick={cashoutDragon}>
-                                CASHOUT ${(bet * dragonState.multiplier).toFixed(2)}
-                            </button>
+                    <div className="dragon-board">
+                        {[...Array(9)].map((_, i) => {
+                            const rIndex = 8 - i; // Reverse render (0 at bottom)
+                            const isActive = dragonState.status === 'playing' && dragonState.row === rIndex;
+                            const isPast = dragonState.row > rIndex;
+                            return (
+                                <div key={i} className={`tower-row ${isActive ? 'active-row' : ''} ${isPast ? 'cleared-row' : ''}`}>
+                                    <div className="mult-label">x{isActive ? (dragonState.multiplier || 1).toFixed(2) : ''}</div>
+                                    <button onClick={()=>stepDragon(0)} disabled={!isActive} className="block-btn"></button>
+                                    <button onClick={()=>stepDragon(1)} disabled={!isActive} className="block-btn"></button>
+                                    <button onClick={()=>stepDragon(2)} disabled={!isActive} className="block-btn"></button>
+                                </div>
+                            )
+                        })}
+                    </div>
+                    <div className="controls-bar">
+                        <div className="input-group"><label>BET</label><input type="number" value={bet} onChange={e=>setBet(Number(e.target.value))} /></div>
+                        <div className="input-group"><label>RISK</label><select value={dragonDiff} onChange={e=>setDragonDiff(e.target.value)}><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select></div>
+                        {dragonState.status === 'playing' ? (
+                             <button className="act-btn cashout" onClick={cashDragon}>CASHOUT ${(bet * dragonState.multiplier).toFixed(2)}</button>
                         ) : (
-                            <button className="action-btn play" onClick={startDragon}>PLAY</button>
+                             <button className="act-btn play" onClick={startDragon}>PLAY</button>
                         )}
-                         {dragonState.status === 'dead' && <div className="lose-overlay">FELL!</div>}
-                         {dragonState.status === 'won' && <div className="win-overlay">CLIMBED!</div>}
                     </div>
                 </div>
             )}

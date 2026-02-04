@@ -1,101 +1,217 @@
 import React, { useState, useEffect } from 'react';
-import io from 'socket.io-client';
 import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google'; 
 import './App.css';
 
-const socket = io("https://gumble-backend.onrender.com");
+const API_URL = "https://gumble-backend.onrender.com/api";
 const CLIENT_ID = "67123336647-b00rcsb6ni8s8unhi3qqg0bk6l2es62l.apps.googleusercontent.com"; 
-
-const getCardSrc = (c) => c === 'XX' ? "https://www.deckofcardsapi.com/static/img/back.png" : `https://www.deckofcardsapi.com/static/img/${c[0] === 'T' ? '0' : c[0]}${c[1].toUpperCase()}.png`;
 
 function App() {
   const [user, setUser] = useState(null);
-  const [gameState, setGameState] = useState(null);
-  const [showModal, setShowModal] = useState(false);
-  const [selTable, setSelTable] = useState(null);
-  const [buyIn, setBuyIn] = useState(100);
+  const [activeGame, setActiveGame] = useState('menu'); // menu, blackjack, mines, keno, dragon
+  const [message, setMessage] = useState("");
+  
+  // Game States
+  const [bet, setBet] = useState(10);
+  const [bjState, setBjState] = useState(null);
+  const [minesConfig, setMinesConfig] = useState({ count: 3 });
+  const [kenoNums, setKenoNums] = useState([]);
+  const [lastResult, setLastResult] = useState(null);
 
-  useEffect(() => {
-    socket.on('gameState', setGameState);
-    return () => socket.off('gameState');
-  }, []);
-
-  const handleLogin = async (creds) => {
-    const res = await fetch("https://gumble-backend.onrender.com/api/google-login", { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({token: creds.credential}) });
-    const data = await res.json();
-    if(res.ok) setUser(data);
+  const refreshUser = async () => {
+      if(!user) return;
+      const res = await fetch(`${API_URL}/user/${user._id}`);
+      setUser(await res.json());
   };
 
-  const join = () => {
-    socket.emit('joinTable', { tableId: selTable, userId: user._id, buyIn });
-    setShowModal(false);
+  const handleLogin = async (creds) => {
+      const res = await fetch(`${API_URL}/auth/google`, {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({token: creds.credential})
+      });
+      const data = await res.json();
+      if(res.ok) setUser(data);
+  };
+
+  // --- BLACKJACK FUNCS ---
+  const playBj = async (action) => {
+      if(action === 'deal') {
+          const res = await fetch(`${API_URL}/blackjack/deal`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({userId: user._id, bet}) });
+          setBjState(await res.json());
+      } else {
+          const res = await fetch(`${API_URL}/blackjack/${action}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({userId: user._id}) });
+          setBjState(await res.json());
+      }
+      refreshUser();
+  };
+
+  // --- MINES FUNCS ---
+  const playMines = async (tileIdx) => {
+      const res = await fetch(`${API_URL}/mines/play`, { 
+          method: 'POST', headers: {'Content-Type': 'application/json'}, 
+          body: JSON.stringify({userId: user._id, bet, minesCount: minesConfig.count, clickedTile: tileIdx}) 
+      });
+      const data = await res.json();
+      setLastResult(data);
+      refreshUser();
+      if(data.result === 'bomb') setMessage(`💥 BOOM! You hit a mine.`);
+      else setMessage(`💎 GEM! Won $${data.win}`);
+  };
+
+  // --- KENO FUNCS ---
+  const playKeno = async () => {
+      if(kenoNums.length === 0) return alert("Pick numbers!");
+      const res = await fetch(`${API_URL}/keno/play`, { 
+          method: 'POST', headers: {'Content-Type': 'application/json'}, 
+          body: JSON.stringify({userId: user._id, bet, numbers: kenoNums}) 
+      });
+      const data = await res.json();
+      setLastResult(data);
+      refreshUser();
+  };
+
+  // --- DRAGON TOWER FUNCS ---
+  const playDragon = async (diff) => {
+      const res = await fetch(`${API_URL}/dragon/play`, { 
+          method: 'POST', headers: {'Content-Type': 'application/json'}, 
+          body: JSON.stringify({userId: user._id, bet, difficulty: diff}) 
+      });
+      const data = await res.json();
+      setLastResult(data);
+      refreshUser();
+      setMessage(data.result === 'safe' ? `🐉 CLIMBED! Won $${data.win}` : "💀 FELL!");
   };
 
   if (!user) return (
-    <div className="login-screen">
-      <div className="login-box">
-        <h1 className="logo">GUMBLE<span className="gold">STAKE</span></h1>
-        <GoogleOAuthProvider clientId={CLIENT_ID}>
-          <GoogleLogin onSuccess={handleLogin} theme="filled_black" shape="pill" />
-        </GoogleOAuthProvider>
+      <div className="login-screen">
+          <h1 className="logo">GUMBLE<span className="gold">CASINO</span></h1>
+          <GoogleOAuthProvider clientId={CLIENT_ID}>
+              <GoogleLogin onSuccess={handleLogin} theme="filled_black" shape="pill" />
+          </GoogleOAuthProvider>
       </div>
-    </div>
   );
-
-  if (!gameState) return (
-    <div className="lobby-screen">
-      <div className="lobby-header"><h1>LOBBY</h1><div className="balance-badge">${user.balance}</div></div>
-      <div className="table-grid">
-        <div className="table-card">
-            <h3>Casual ($10/$20)</h3>
-            <button className="gold-btn" onClick={() => {setSelTable('t1'); setShowModal(true);}}>JOIN</button>
-        </div>
-        <div className="table-card">
-            <h3>Pro ($20/$40)</h3>
-            <button className="gold-btn" onClick={() => {setSelTable('t2'); setShowModal(true);}}>JOIN</button>
-        </div>
-      </div>
-      {showModal && <div className="modal-overlay"><div className="modal-box">
-        <h3>BUY IN: ${buyIn}</h3>
-        <input type="range" min="10" max={user.balance} value={buyIn} onChange={e=>setBuyIn(Number(e.target.value))} />
-        <div className="modal-actions">
-            <button className="gold-btn" onClick={join}>CONFIRM</button>
-            <button className="red-btn" onClick={()=>setShowModal(false)}>CANCEL</button>
-        </div>
-      </div></div>}
-    </div>
-  );
-
-  const myTurn = gameState.players[gameState.turnIndex]?.id === socket.id;
-  const me = gameState.players.find(p => p.name === user.username);
 
   return (
-    <div className="game-screen">
-      <div className="poker-table">
-        <div className="table-center">
-            <div className="pot-pill">POT: ${gameState.pot}</div>
-            <div className="community-cards">
-                {gameState.communityCards.map((c, i) => <img key={i} src={getCardSrc(c)} className="real-card" />)}
-            </div>
-            {gameState.winners.length > 0 && <div className="winner-msg">WINNER: {gameState.winners.join(", ")}</div>}
+    <div className="app">
+        <div className="header">
+            <div className="logo" onClick={()=>setActiveGame('menu')}>GUMBLE</div>
+            <div className="bal">Balance: ${user.balance.toFixed(2)}</div>
+            <button className="back-btn" onClick={()=>setActiveGame('menu')}>MENU</button>
         </div>
-        {gameState.players.map((p, i) => (
-          <div key={i} className={`seat seat-${i} ${gameState.turnIndex === i ? 'active-turn' : ''} ${p.folded ? 'folded' : ''}`}>
-            <div className="avatar">{p.name[0]}</div>
-            <div className="p-info"><div>{p.name}</div><div>${p.balance}</div></div>
-            <div className="hand">
-              {p.hand.map((c, j) => <img key={j} src={getCardSrc(p.name === user.username || gameState.phase === 'showdown' ? c : 'XX')} className="real-card small" />)}
+
+        {/* --- MAIN MENU --- */}
+        {activeGame === 'menu' && (
+            <div className="menu-grid">
+                <div className="card-game" onClick={()=>setActiveGame('blackjack')}>
+                    <h2>♠️ BLACKJACK</h2>
+                    <p>Beat the Dealer</p>
+                </div>
+                <div className="card-game" onClick={()=>setActiveGame('mines')}>
+                    <h2>💣 MINES</h2>
+                    <p>Don't Explode</p>
+                </div>
+                <div className="card-game" onClick={()=>setActiveGame('keno')}>
+                    <h2>🎱 KENO</h2>
+                    <p>Lucky Numbers</p>
+                </div>
+                <div className="card-game" onClick={()=>setActiveGame('dragon')}>
+                    <h2>🐉 DRAGON TOWER</h2>
+                    <p>Climb & Win</p>
+                </div>
             </div>
-            {p.bet > 0 && <div className="bet-bubble">${p.bet}</div>}
-          </div>
-        ))}
-      </div>
-      <div className={`controls-dock ${!myTurn ? 'disabled' : ''}`}>
-        <button className="act-btn fold" onClick={() => socket.emit('action', {tableId: selTable, type: 'fold'})}>FOLD</button>
-        <button className="act-btn check" onClick={() => socket.emit('action', {tableId: selTable, type: 'call'})}>CALL/CHECK</button>
-        <button className="act-btn raise" onClick={() => socket.emit('action', {tableId: selTable, type: 'raise', amount: gameState.highestBet + 20})}>RAISE +$20</button>
-      </div>
+        )}
+
+        {/* --- BLACKJACK UI --- */}
+        {activeGame === 'blackjack' && (
+            <div className="game-container">
+                <h1>BLACKJACK (Pays 2:1)</h1>
+                {!bjState || bjState.status !== 'playing' ? (
+                    <div className="bet-controls">
+                        <input type="number" value={bet} onChange={e=>setBet(Number(e.target.value))} />
+                        <button className="gold-btn" onClick={()=>playBj('deal')}>DEAL (${bet})</button>
+                        {bjState && <div className="result-msg">{bjState.status.toUpperCase()}</div>}
+                    </div>
+                ) : (
+                    <div className="bj-table">
+                        <div className="hand dealer">
+                            <h3>Dealer</h3>
+                            {bjState.dealerHand.map((c,i) => <div key={i} className="card">{c.rank}{c.suit}</div>)}
+                        </div>
+                        <div className="hand player">
+                            <h3>You</h3>
+                            {bjState.playerHand.map((c,i) => <div key={i} className="card">{c.rank}{c.suit}</div>)}
+                        </div>
+                        <div className="actions">
+                            <button className="act-btn hit" onClick={()=>playBj('hit')}>HIT</button>
+                            <button className="act-btn stand" onClick={()=>playBj('stand')}>STAND</button>
+                        </div>
+                    </div>
+                )}
+            </div>
+        )}
+
+        {/* --- MINES UI --- */}
+        {activeGame === 'mines' && (
+            <div className="game-container">
+                <h1>MINES</h1>
+                <div className="bet-controls">
+                    Bet: <input type="number" value={bet} onChange={e=>setBet(Number(e.target.value))} />
+                    Mines: <select onChange={e=>setMinesConfig({count: Number(e.target.value)})}>
+                        <option value="1">1 Mine</option><option value="3">3 Mines</option><option value="5">5 Mines</option>
+                    </select>
+                </div>
+                <h3 style={{color: '#d4af37'}}>{message}</h3>
+                <div className="mines-grid">
+                    {Array(25).fill(0).map((_, i) => (
+                        <div key={i} className="mine-tile" onClick={()=>playMines(i)}>❓</div>
+                    ))}
+                </div>
+            </div>
+        )}
+
+        {/* --- KENO UI --- */}
+        {activeGame === 'keno' && (
+            <div className="game-container">
+                <h1>KENO (Pick up to 10)</h1>
+                <div className="bet-controls">
+                    Bet: <input type="number" value={bet} onChange={e=>setBet(Number(e.target.value))} />
+                    <button className="gold-btn" onClick={playKeno}>PLAY</button>
+                </div>
+                {lastResult && <div className="result-msg">Matched: {lastResult.matches} | Won: ${lastResult.payout}</div>}
+                <div className="keno-grid">
+                    {Array(40).fill(0).map((_, i) => {
+                        const n = i+1;
+                        const isSelected = kenoNums.includes(n);
+                        const isDrawn = lastResult?.draw.includes(n);
+                        return (
+                            <div key={n} 
+                                 className={`keno-ball ${isSelected ? 'selected' : ''} ${isDrawn ? 'drawn' : ''}`}
+                                 onClick={() => {
+                                     if(isSelected) setKenoNums(kenoNums.filter(x=>x!==n));
+                                     else if(kenoNums.length<10) setKenoNums([...kenoNums, n]);
+                                 }}
+                            >{n}</div>
+                        );
+                    })}
+                </div>
+            </div>
+        )}
+
+        {/* --- DRAGON UI --- */}
+        {activeGame === 'dragon' && (
+            <div className="game-container">
+                <h1>DRAGON TOWER</h1>
+                <div className="bet-controls">
+                    Bet: <input type="number" value={bet} onChange={e=>setBet(Number(e.target.value))} />
+                </div>
+                <h3 style={{color: message.includes('Win') ? 'green' : 'red'}}>{message}</h3>
+                <div className="dragon-actions">
+                    <button className="act-btn safe" onClick={()=>playDragon('easy')}>EASY (1.4x)</button>
+                    <button className="act-btn risk" onClick={()=>playDragon('hard')}>HARD (2.5x)</button>
+                </div>
+            </div>
+        )}
     </div>
   );
 }
+
 export default App;

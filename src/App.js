@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import io from 'socket.io-client';
-import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google'; // GOOGLE IMPORTS
+import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google'; 
 import './App.css';
 
 const socket = io("https://gumble-backend.onrender.com");
-const CLIENT_ID = "67123336647-b00rcsb6ni8s8unhi3qqg0bk6l2es62l.apps.googleusercontent.com"; // PASTE SAME ID HERE
+const CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID_HERE"; // PASTE IT HERE TOO
 
 const getCardSrc = (code) => {
     if (!code || code === 'XX' || code.length < 2) return "https://www.deckofcardsapi.com/static/img/back.png";
@@ -23,7 +23,6 @@ function App() {
   const [raiseAmount, setRaiseAmount] = useState(0);
   const [isRegistering, setIsRegistering] = useState(false);
 
-  // AUTH HANDLERS
   const handleAuth = async (e) => {
     e.preventDefault();
     const endpoint = isRegistering ? 'register' : 'login';
@@ -46,7 +45,7 @@ function App() {
           });
           const data = await res.json();
           if (res.ok) setUser(data);
-          else alert("Google Login Failed");
+          else alert("Google Login Failed - Check Console");
       } catch (err) { alert("Server Error"); }
   };
 
@@ -81,45 +80,29 @@ function App() {
       socket.emit('action', { tableId: currentTable, type, amount });
   };
 
-  // 1. LOGIN SCREEN WITH GOOGLE
   if (!user) return (
       <div className="login-screen">
           <div className="login-box">
               <h1 className="logo">GUMBLE<span className="gold">STAKE</span></h1>
-              
-              {/* GOOGLE BUTTON WRAPPER */}
               <div className="google-wrapper">
                   <GoogleOAuthProvider clientId={CLIENT_ID}>
-                      <GoogleLogin 
-                          onSuccess={handleGoogleSuccess} 
-                          onError={() => console.log('Login Failed')} 
-                          theme="filled_black"
-                          shape="pill"
-                      />
+                      <GoogleLogin onSuccess={handleGoogleSuccess} onError={() => console.log('Login Failed')} theme="filled_black" shape="pill" />
                   </GoogleOAuthProvider>
               </div>
-
-              <div className="divider">OR USE PASSWORD</div>
-              
+              <div className="divider">OR</div>
               <form onSubmit={handleAuth}>
                   <input className="lux-input" name="username" placeholder="Username" />
                   <input className="lux-input" name="password" type="password" placeholder="Password" />
                   <button className="gold-btn">{isRegistering ? "REGISTER" : "LOGIN"}</button>
               </form>
-              <p className="toggle" onClick={()=>setIsRegistering(!isRegistering)}>
-                  {isRegistering ? "Back to Login" : "Create Account"}
-              </p>
+              <p className="toggle" onClick={()=>setIsRegistering(!isRegistering)}>{isRegistering ? "Back to Login" : "Create Account"}</p>
           </div>
       </div>
   );
 
-  // 2. LOBBY
   if (!currentTable) return (
       <div className="lobby-screen">
-          <div className="lobby-header">
-              <h1>LOBBY</h1>
-              <div className="balance-badge">Wallet: ${user.balance}</div>
-          </div>
+          <div className="lobby-header"><h1>LOBBY</h1><div className="balance-badge">Wallet: ${user.balance}</div></div>
           <div className="table-grid">
               {tables.map(t => (
                   <div key={t.id} className="table-card">
@@ -132,7 +115,6 @@ function App() {
       </div>
   );
 
-  // 3. TABLE
   if (!gameState) return <div className="loading">Loading Table...</div>;
   const myPlayer = gameState.players.find(p => p.name === user.username);
   const isMyTurn = gameState.players[gameState.turnIndex]?.id === socket.id;
@@ -146,9 +128,7 @@ function App() {
             <div className="table-center">
                 <div className="pot-pill">POT: ${gameState.pot}</div>
                 <div className="community-cards">
-                    {gameState.communityCards.map((c, i) => (
-                        <img key={i} src={getCardSrc(c)} className="real-card" alt="card" />
-                    ))}
+                    {gameState.communityCards.map((c, i) => <img key={i} src={getCardSrc(c)} className="real-card" alt="card" />)}
                 </div>
                 {gameState.phase === 'showdown' && <div className="winner-msg">WINNER: {gameState.winners.join(", ")}</div>}
             </div>
